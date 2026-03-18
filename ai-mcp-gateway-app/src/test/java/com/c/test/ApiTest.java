@@ -15,5 +15,4 @@ public class ApiTest {
     public void test() {
         log.info("测试完成");
     }
-
 }
