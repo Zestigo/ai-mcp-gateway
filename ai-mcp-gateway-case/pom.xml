@@ -7,6 +7,8 @@
         <groupId>com.c</groupId>
         <artifactId>ai-mcp-gateway</artifactId>
         <version>1.0-SNAPSHOT</version>
+        <!-- 关键：指定父POM的相对路径（子模块在根目录下，所以是../pom.xml） -->
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>ai-mcp-gateway-case</artifactId>
@@ -22,6 +24,10 @@
             <groupId>com.c</groupId>
             <artifactId>ai-mcp-gateway-domain</artifactId>
         </dependency>
+        <dependency>
+            <groupId>cn.bugstack.wrench</groupId>
+            <artifactId>xfg-wrench-starter-design-framework</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -30,10 +36,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <!-- 显式声明版本，避免继承问题 -->
+                <version>3.11.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <compilerVersion>${java.version}</compilerVersion>
+                    <!-- 改用子模块自己定义的属性，或直接用17 -->
+                    <source>17</source>
+                    <target>17</target>
+                    <compilerVersion>17</compilerVersion>
                 </configuration>
             </plugin>
         </plugins>

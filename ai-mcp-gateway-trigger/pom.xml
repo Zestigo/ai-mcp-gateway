@@ -5,6 +5,8 @@
         <groupId>com.c</groupId>
         <artifactId>ai-mcp-gateway</artifactId>
         <version>1.0-SNAPSHOT</version>
+        <!-- 关键：添加relativePath -->
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>ai-mcp-gateway-trigger</artifactId>
@@ -39,6 +41,10 @@
         <dependency>
             <groupId>com.c</groupId>
             <artifactId>ai-mcp-gateway-domain</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.c</groupId>
+            <artifactId>ai-mcp-gateway-case</artifactId>
         </dependency>
     </dependencies>
 
