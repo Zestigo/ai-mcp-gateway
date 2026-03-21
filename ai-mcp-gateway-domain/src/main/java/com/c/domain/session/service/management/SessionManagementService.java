@@ -1,4 +1,4 @@
-package com.c.domain.session.service.impl;
+package com.c.domain.session.service.management;
 
 import com.c.domain.session.model.valobj.SessionConfigVO;
 import com.c.domain.session.service.ISessionManagementService;

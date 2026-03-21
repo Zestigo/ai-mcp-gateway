@@ -3,42 +3,52 @@ server:
   servlet:
     context-path: /api-gateway
 
-# 线程池配置
+# 线程池配置 - 核心业务线程池参数
 thread:
   pool:
     executor:
       config:
-        core-pool-size: 20
-        max-pool-size: 50
-        keep-alive-time: 5000
-        block-queue-size: 5000
-        policy: CallerRunsPolicy
+        core-pool-size: 20        # 核心线程数
+        max-pool-size: 50         # 最大线程数
+        keep-alive-time: 5000     # 非核心线程空闲存活时间(ms)
+        block-queue-size: 5000    # 任务阻塞队列容量
+        policy: CallerRunsPolicy  # 线程池拒绝策略：调用者执行策略
 
-# 数据库配置；启动时配置数据库资源信息
+# 数据库配置 - 基础连接信息
 spring:
   datasource:
     username: root
     password: 123456
     url: jdbc:mysql://192.168.21.130:3306/xfg_frame_archetype?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true
     driver-class-name: com.mysql.cj.jdbc.Driver
+  # AI配置 - 阿里云通义千问兼容OpenAI接口配置
+  ai:
+    openai:
+      # 此处必须省略后缀 /v1 ：Spring AI Client 底层会自动补全 /v1/chat/completions。
+      base-url: https://dashscope.aliyuncs.com/compatible-mode  # 通义千问兼容OpenAI的基础地址
+      api-key: sk-3834e2c804474f4fb7809e34d9aed9de             # 通义千问API密钥
+      chat:
+        options:
+          model: qwen-max                             # 调用的AI模型名称
+  # 数据库连接池 - HikariCP配置
   hikari:
-    pool-name: Retail_HikariCP
-    minimum-idle: 15 #最小空闲连接数量
-    idle-timeout: 180000 #空闲连接存活最大时间，默认600000（10分钟）
-    maximum-pool-size: 25 #连接池最大连接数，默认是10
-    auto-commit: true  #此属性控制从池返回的连接的默认自动提交行为,默认值：true
-    max-lifetime: 1800000 #此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
-    connection-timeout: 30000 #数据库连接超时时间,默认30秒，即30000
-    connection-test-query: SELECT 1
-  type: com.zaxxer.hikari.HikariDataSource
+    pool-name: Retail_HikariCP          # 连接池名称
+    minimum-idle: 15                    # 最小空闲连接数
+    idle-timeout: 180000                # 空闲连接存活超时时间(ms)
+    maximum-pool-size: 25               # 连接池最大连接数
+    auto-commit: true                   # 连接自动提交开关
+    max-lifetime: 1800000               # 连接最大生命周期(ms)
+    connection-timeout: 30000           # 数据库连接超时时间(ms)
+    connection-test-query: SELECT 1     # 连接有效性检测SQL
+  type: com.zaxxer.hikari.HikariDataSource  # 数据源类型：HikariCP
 
-# MyBatis 配置【如需使用记得打开】
+# MyBatis 配置【如需使用请启用】
 #mybatis:
-#  mapper-locations: classpath:/mybatis/mapper/*.xml
-#  config-location:  classpath:/mybatis/config/mybatis-config.xml
+#  mapper-locations: classpath:/mybatis/mapper/*.xml  # Mapper映射文件路径
+#  config-location:  classpath:/mybatis/config/mybatis-config.xml  # MyBatis核心配置文件路径
 
-# 日志
+# 日志配置
 logging:
   level:
-    root: info
-  config: classpath:logback-spring.xml
+    root: info  # 全局日志级别
+  config: classpath:logback-spring.xml  # 日志配置文件路径

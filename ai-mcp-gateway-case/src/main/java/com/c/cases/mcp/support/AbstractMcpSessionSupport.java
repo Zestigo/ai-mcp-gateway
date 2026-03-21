@@ -2,7 +2,7 @@ package com.c.cases.mcp.support;
 
 import com.c.cases.mcp.core.session.factory.DefaultMcpSessionFactory;
 import com.c.cases.mcp.framework.router.AbstractMultiThreadStrategyRouter;
-import com.c.domain.session.service.impl.SessionManagementService;
+import com.c.domain.session.service.management.SessionManagementService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
