@@ -59,6 +59,7 @@ public class AppException extends RuntimeException {
         this.info = info;
     }
 
+
     @Override
     public String toString() {
         return "AppException{" +

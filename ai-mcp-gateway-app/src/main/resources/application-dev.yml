@@ -19,7 +19,7 @@ spring:
   datasource:
     username: root
     password: 123456
-    url: jdbc:mysql://192.168.21.130:3306/xfg_frame_archetype?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true
+    url: jdbc:mysql://192.168.21.130:3306/ai_mcp_gateway?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true
     driver-class-name: com.mysql.cj.jdbc.Driver
   # AI配置 - 阿里云通义千问兼容OpenAI接口配置
   ai:
@@ -50,5 +50,6 @@ spring:
 # 日志配置
 logging:
   level:
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: TRACE
     root: info  # 全局日志级别
   config: classpath:logback-spring.xml  # 日志配置文件路径

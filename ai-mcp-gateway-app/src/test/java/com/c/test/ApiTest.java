@@ -37,7 +37,7 @@ public class ApiTest {
                 .defaultOptions(OpenAiChatOptions
                         .builder()
                         .toolCallbacks(new SyncMcpToolCallbackProvider(mcpClient).getToolCallbacks())
-                .build())
+                        .build())
                 .build();
 
         // 发送测试指令，查询可用工具列表
@@ -80,21 +80,19 @@ public class ApiTest {
      * @return 本地MCP同步客户端实例
      */
     public McpSyncClient sseMcpClient02() {
-        // 构建本地MCP的SSE传输层，指定本地网关地址和端点
-        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
-                .builder("http://127.0.0.1:8091")
-                .sseEndpoint("/api-gateway/api/v1/gateways/test001/sse")
-                .build();
 
-        // 构建同步客户端，设置5分钟请求超时
+        HttpClientSseClientTransport sseClientTransport =
+                HttpClientSseClientTransport
+                        .builder("http://127.0.0.1:8091")
+                        .sseEndpoint("/api-gateway/api/v1/gateways/test001/sse")
+                        .build();
         McpSyncClient mcpSyncClient = McpClient
                 .sync(sseClientTransport)
                 .requestTimeout(Duration.ofMinutes(5))
                 .build();
 
-        // 初始化MCP客户端并打印日志
-        var init_sse = mcpSyncClient.initialize();
-        log.info("本地工具端 Initialized {}", init_sse);
+        var init = mcpSyncClient.initialize();
+        log.info("本地工具端 Initialized {}", init);
 
         return mcpSyncClient;
     }
