@@ -35,51 +35,61 @@ public class SessionMessageService implements ISessionMessageService {
      */
     @Override
     public Mono<McpSchemaVO.JSONRPCResponse> processHandlerMessage(McpSchemaVO.JSONRPCRequest request) {
-        return Mono
-                .fromCallable(() -> {
-                    String method = request.method();
-                    // 入参校验：method不能为空
-                    if (method == null || method.isBlank()) {
-                        throw new AppException("0003", "method 不能为空");
-                    }
+        return Mono.just(request)
+                   // 1. 基础校验：抽离成逻辑算子
+                   .handle((req, sink) -> {
+                       String method = req.method();
+                       if (method == null || method.isBlank()) {
+                           sink.error(new AppException("0003", "method 不能为空"));
+                           return;
+                       }
+                       sink.next(req);
+                   })
+                   .cast(McpSchemaVO.JSONRPCRequest.class)
+                   // 2. 路由逻辑：寻找策略
+                   .flatMap(req -> {
+                       String method = req.method();
+                       log.info("流式路由请求 | Method: [{}], ID: [{}]", method, req.id());
 
-                    log.info("路由请求 | Method: [{}], ID: [{}]", method, request.id());
+                       return Mono
+                               .justOrEmpty(SessionMessageHandlerMethodEnum.getByMethod(method))
+                               .switchIfEmpty(Mono.error(() -> {
+                                   log.error("路由失败：未定义方法 [{}]", method);
+                                   return new AppException("0003", "未找到方法枚举定义: " + method);
+                               }))
+                               .flatMap(strategy -> {
+                                   String handlerName = strategy.getHandlerName();
+                                   IRequestHandler handler = requestHandlerMap.get(handlerName);
+                                   if (handler == null) {
+                                       return Mono.error(new AppException("0003", "未找到处理器实例: " + handlerName));
+                                   }
 
-                    // 匹配方法枚举
-                    SessionMessageHandlerMethodEnum strategy = SessionMessageHandlerMethodEnum
-                            .getByMethod(method)
-                            .orElseThrow(() -> {
-                                log.error("路由失败：未定义方法 [{}]", method);
-                                return new AppException("0003", "未找到方法枚举定义: " + method);
-                            });
+                                   log.info("匹配成功 | 处理器: {}", handler
+                                           .getClass()
+                                           .getSimpleName());
 
-                    // 查找处理器实例
-                    String handlerName = strategy.getHandlerName();
-                    IRequestHandler handler = requestHandlerMap.get(handlerName);
-                    if (handler == null) {
-                        log.error("路由失败：未找到处理器Bean [{}]", handlerName);
-                        throw new AppException("0003", "未找到处理器实例: " + handlerName);
-                    }
+                                   // 3. 执行业务逻辑
+                                   // 注意：如果你的 handler.handle 是阻塞的，包在 fromCallable 里
+                                   return Mono
+                                           .fromCallable(() -> handler.handle(req))
+                                           .subscribeOn(Schedulers.boundedElastic())
+                                           .flatMap(response -> {
+                                               // 4. 判断是否是通知
+                                               if (req.isNotification() || method.startsWith("notifications/")) {
+                                                   log.info("通知类请求处理完成，流式返回 Empty | method: {}", method);
+                                                   return Mono.empty(); // 通知不需要响应，返回空流
+                                               }
 
-                    // 执行处理器逻辑
-                    log.info("匹配成功 | 处理器: {}", handler
-                            .getClass()
-                            .getSimpleName());
-                    McpSchemaVO.JSONRPCResponse response = handler.handle(request);
-
-                    // 通知类请求：不返回响应
-                    if (request.isNotification() || method.startsWith("notifications/")) {
-                        log.info("通知类请求处理完成 | method: {}", method);
-                        return null;
-                    }
-
-                    // 响应校验：非通知类请求响应不能为空
-                    if (response == null) {
-                        throw new AppException("0003", "Handler 返回了 null: " + handlerName);
-                    }
-
-                    return response;
-                })
-                .subscribeOn(Schedulers.boundedElastic()); // 切换至弹性线程池，避免阻塞IO线程
+                                               if (response == null) {
+                                                   return Mono.error(new AppException("0003",
+                                                           "Handler 返回了空响应: " + handlerName));
+                                               }
+                                               return Mono.just(response);
+                                           });
+                               });
+                   })
+                   // 全局错误日志记录
+                   .doOnError(e -> log.error("消息路由流处理异常: {}", e.getMessage()))
+                   .subscribeOn(Schedulers.boundedElastic());
     }
 }
