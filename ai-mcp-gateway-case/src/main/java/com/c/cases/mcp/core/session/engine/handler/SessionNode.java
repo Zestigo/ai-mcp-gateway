@@ -39,53 +39,33 @@ public class SessionNode extends AbstractMcpSessionSupport {
      */
     @Override
     protected Flux<ServerSentEvent<String>> doApply(String request, DefaultMcpSessionFactory.DynamicContext context) {
-        log.info("SessionNode接收会话创建请求，请求参数: {}", request);
-
-        // 核心流程：创建会话 → 构建事件流 → 全局异常处理
         return sessionManagementService
-                // 1. 异步创建会话：生成sessionId、初始化Sink等核心会话资源
                 .createSession(request)
-                // 2. 会话创建成功后，转换为Flux并构建事件流（Mono转Flux适配SSE响应）
                 .flatMapMany(session -> {
-                    // 2.1 写入会话上下文：供EndNode等后续节点获取会话配置
                     context.setSessionConfigVO(session);
                     String sessionId = session.getSessionId();
-                    log.info("会话创建成功，会话ID: {}", sessionId);
 
-                    // 2.2 构建会话初始化事件：必须优先返回给前端，用于前端绑定会话标识
-                    ServerSentEvent<String> initEvent = ServerSentEvent
+                    String endpointPath = String.format("%s/api/v1/gateways/%s/sessions/%s/messages", "/api-gateway",
+                            request, sessionId);
+
+                    log.info("向客户端推送标准 MCP endpoint: {}", endpointPath);
+
+                    // 只有发了 event("endpoint")，SDK 才会停止在 SSE 流上瞎解析 JSON，转而去发 POST 请求
+                    ServerSentEvent<String> endpointEvent = ServerSentEvent
                             .<String>builder()
-                            .event("session") // 事件类型：session（前端识别为会话初始化）
-                            .data(sessionId)  // 事件数据：唯一会话ID
+                            .event("endpoint")
+                            .data(endpointPath)
                             .build();
 
-                    // 2.3 延迟执行责任链路由（关键写法）：
-                    // 使用Flux.defer延迟router调用，避免提前触发后续流程（如EndNode的SSE流）
-                    // 保证初始化事件优先返回，且router执行异常可被全局onErrorResume捕获
                     Flux<ServerSentEvent<String>> nextFlux = Flux.defer(() -> {
                         try {
-                            // 路由至责任链下一个节点（EndNode）
                             return router(request, context);
                         } catch (Exception e) {
-                            // 包装异常为运行时异常，保证响应式流能捕获并传播
                             throw new RuntimeException(e);
                         }
                     });
 
-                    // 2.4 顺序拼接事件流：先返回初始化事件，再拼接EndNode的SSE主流
-                    // 保证前端先拿到sessionId，再接收后续业务消息/心跳
-                    return Flux.concat(Flux.just(initEvent), nextFlux);
-                })
-
-                // 3. 全局异常捕获：流内任意环节异常时，返回标准化错误事件
-                // 设计意图：避免SSE流中断且无反馈，前端可通过"error"事件感知并处理异常
-                .onErrorResume(e -> {
-                    log.error("SessionNode处理会话创建请求时发生异常", e);
-                    return Flux.just(ServerSentEvent
-                            .<String>builder()
-                            .event("error")       // 事件类型：error（前端识别为异常）
-                            .data(e.getMessage()) // 事件数据：异常信息
-                            .build());
+                    return Flux.concat(Flux.just(endpointEvent), nextFlux);
                 });
     }
 

@@ -1,92 +1,128 @@
 package com.c.domain.session.model.valobj;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
+import com.alibaba.fastjson2.annotation.JSONCreator;
+import com.alibaba.fastjson2.annotation.JSONField;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-
 /**
- * MCP 协议 Schema 数据值对象
- * 核心能力：基于Java 21密封接口+Record实现JSON-RPC 2.0协议高性能、类型安全解析
+ * MCP/JSON-RPC 2.0协议模型：实现高性能序列化/反序列化
  *
  * @author cyh
- * @date 2026/03/20
+ * @date 2026/03/23
  */
 @Slf4j
 public final class McpSchemaVO {
 
-    /**
-     * 全局复用的ObjectMapper实例（线程安全）
-     * 配置说明：1.忽略未知属性 2.序列化仅包含非空字段
-     */
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
-
-    /**
-     * 反序列化JSON-RPC 2.0消息
-     * 性能优化：先解析为JsonNode探测消息类型，避免双倍转换开销
-     *
-     * @param jsonText JSON-RPC 2.0格式字符串
-     * @return 类型安全的JSONRPCMessage实例（请求/响应）
-     * @throws IOException              JSON解析失败时抛出
-     * @throws IllegalArgumentException 消息结构不符合JSON-RPC 2.0规范时抛出
-     */
-    public static JSONRPCMessage deserializeJsonRpcMessage(String jsonText) throws IOException {
-        log.debug("Parsing JSON-RPC message: {}", jsonText);
-        // 解析为轻量级树结构，探测消息类型
-        JsonNode root = MAPPER.readTree(jsonText);
-        // 请求消息：包含method字段（JSON-RPC 2.0标准）
-        if (root.has("method")) {
-            return MAPPER.treeToValue(root, JSONRPCRequest.class);
-        }
-        // 响应消息：包含result或error字段（JSON-RPC 2.0标准）
-        if (root.has("result") || root.has("error")) {
-            return MAPPER.treeToValue(root, JSONRPCResponse.class);
-        }
-        throw new IllegalArgumentException("Unrecognized JSON-RPC message structure: " + jsonText);
+    /** 私有构造器，禁止实例化 */
+    private McpSchemaVO() {
     }
 
     /**
-     * JSON-RPC 2.0消息密封接口
-     * 设计约束：仅允许当前类内的Record实现，保证类型安全
+     * 反序列化JSON-RPC消息
+     *
+     * @param jsonText JSON格式的RPC消息串
+     * @return JSONRPCRequest/JSONRPCResponse
+     * @throws IllegalArgumentException 消息格式非法时抛出
+     */
+    public static JSONRPCMessage deserializeJsonRpcMessage(String jsonText) {
+        JSONObject root = JSON.parseObject(jsonText);
+        try {
+            if (root.containsKey("method")) return root.toJavaObject(JSONRPCRequest.class);
+            if (root.containsKey("result") || root.containsKey("error"))
+                return root.toJavaObject(JSONRPCResponse.class);
+        } catch (Exception e) {
+            log.error("JSON-RPC反序列化失败 | 内容: {}", jsonText, e);
+            throw new IllegalArgumentException("Invalid JSON-RPC format", e);
+        }
+        throw new IllegalArgumentException("Unknown JSON-RPC message type");
+    }
+
+    /**
+     * 序列化JSON-RPC消息（保留Null字段保证协议完整性）
+     *
+     * @param message RPC消息对象
+     * @return 序列化后的JSON字符串
+     */
+    public static String toJson(Object message) {
+        if (message == null) return null;
+        if (message instanceof String s) return s; // 防止二次序列化
+        return JSON.toJSONString(message, JSONWriter.Feature.WriteMapNullValue, JSONWriter.Feature.BrowserCompatible);
+    }
+
+    /**
+     * 构建JSON-RPC错误响应
+     *
+     * @param id      响应ID
+     * @param code    错误码（符合JSON-RPC 2.0规范）
+     * @param message 错误描述
+     * @return 错误响应对象
+     */
+    public static JSONRPCResponse buildErrorResponse(Object id, int code, String message) {
+        return new JSONRPCResponse("2.0", id, null, new JSONRPCResponse.JSONRPCError(code, message, null));
+    }
+
+    /**
+     * JSON-RPC 2.0消息通用接口
      */
     public sealed interface JSONRPCMessage permits JSONRPCRequest, JSONRPCResponse {
-        /**
-         * JSON-RPC协议版本号（固定为"2.0"）
-         *
-         * @return 协议版本字符串
-         */
-        @JsonProperty("jsonrpc")
+        /** JSON-RPC协议版本（固定2.0） */
         String jsonrpc();
     }
 
     /**
-     * JSON-RPC 2.0请求消息实体
-     * 不可变记录，包含协议核心字段：版本、方法、ID、参数
+     * JSON-RPC 2.0请求对象
+     *
+     * @param jsonrpc 协议版本
+     * @param method  调用方法名
+     * @param id      请求ID（通知型为null）
+     * @param params  调用参数
      */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record JSONRPCRequest(String jsonrpc, String method, Object id, Object params) implements JSONRPCMessage {
+    public record JSONRPCRequest(@JSONField(name = "jsonrpc") String jsonrpc, @JSONField(name = "method") String method,
+                                 @JSONField(name = "id") Object id,
+                                 @JSONField(name = "params") Object params) implements JSONRPCMessage {
+
+        @JSONCreator
+        public JSONRPCRequest {
+        }
+
+        /** 判断是否为通知型请求（无返回ID） */
+        public boolean isNotification() {
+            return id == null;
+        }
     }
 
     /**
-     * JSON-RPC 2.0响应消息实体
-     * 不可变记录，包含协议核心字段：版本、ID、结果、错误信息
+     * JSON-RPC 2.0响应对象
+     *
+     * @param jsonrpc 协议版本
+     * @param id      响应ID
+     * @param result  成功结果
+     * @param error   错误信息
      */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record JSONRPCResponse(String jsonrpc, Object id, Object result,
-                                  JSONRPCError error) implements JSONRPCMessage {
+    public record JSONRPCResponse(@JSONField(name = "jsonrpc") String jsonrpc, @JSONField(name = "id") Object id,
+                                  @JSONField(name = "result") Object result,
+                                  @JSONField(name = "error") JSONRPCError error) implements JSONRPCMessage {
+
+        @JSONCreator
+        public JSONRPCResponse {
+        }
 
         /**
-         * JSON-RPC 2.0错误详情实体
-         * 包含错误码、错误信息、附加数据
+         * JSON-RPC 2.0错误子对象
+         *
+         * @param code    错误码
+         * @param message 错误描述
+         * @param data    附加错误信息
          */
-        public record JSONRPCError(int code, String message, Object data) {
+        public record JSONRPCError(@JSONField(name = "code") int code, @JSONField(name = "message") String message,
+                                   @JSONField(name = "data") Object data) {
+
+            @JSONCreator
+            public JSONRPCError {
+            }
         }
     }
 }

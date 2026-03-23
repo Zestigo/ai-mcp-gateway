@@ -17,7 +17,7 @@ import java.time.Duration;
 
 @Slf4j
 @RunWith(SpringRunner.class)
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 public class ApiTest {
 
     /** AI聊天客户端构建器 */
@@ -29,15 +29,15 @@ public class ApiTest {
      */
     @Test
     public void test_mcp() {
-        // 构建百度MCP同步客户端
-        McpSyncClient mcpClient = sseMcpClient01();
+        // 构建MCP同步客户端
+        McpSyncClient mcpClient = sseMcpClient02();
 
         // 构建ChatClient，注入MCP工具回调
         ChatClient chatClient = chatClientBuilder
                 .defaultOptions(OpenAiChatOptions
                         .builder()
                         .toolCallbacks(new SyncMcpToolCallbackProvider(mcpClient).getToolCallbacks())
-                        .build())
+                .build())
                 .build();
 
         // 发送测试指令，查询可用工具列表
@@ -82,8 +82,8 @@ public class ApiTest {
     public McpSyncClient sseMcpClient02() {
         // 构建本地MCP的SSE传输层，指定本地网关地址和端点
         HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
-                .builder("http://127.0.0.1:8777")
-                .sseEndpoint("/api-gateway/test10001/mcp/sse")
+                .builder("http://127.0.0.1:8091")
+                .sseEndpoint("/api-gateway/api/v1/gateways/test001/sse")
                 .build();
 
         // 构建同步客户端，设置5分钟请求超时

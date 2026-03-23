@@ -1,6 +1,7 @@
 package com.c.domain.session.service;
 
 import com.c.domain.session.model.valobj.McpSchemaVO;
+import reactor.core.publisher.Mono;
 
 /**
  * 会话消息处理服务接口
@@ -18,6 +19,6 @@ public interface ISessionMessageService {
      * @param message JSON-RPC 格式的会话请求消息，包含请求方法、参数、ID 等核心信息
      * @return JSON-RPC 格式的处理响应消息，包含处理结果、错误信息（如有）、对应的请求 ID 等
      */
-    McpSchemaVO.JSONRPCResponse processHandlerMessage(McpSchemaVO.JSONRPCRequest message);
+    Mono<McpSchemaVO.JSONRPCResponse> processHandlerMessage(McpSchemaVO.JSONRPCRequest message);
 
 }

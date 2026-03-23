@@ -73,9 +73,10 @@ public class SessionManagementService implements ISessionManagementService, Init
                     // 封装会话配置并加入活跃会话池
                     SessionConfigVO vo = new SessionConfigVO(sessionId, sink);
                     activeSessions.put(sessionId, vo);
-
+                    String MSG_PATH_TPL = "/api-gateway/api/v1/gateways/%s/sessions/%s/messages";
+                    String endpoint = String.format(MSG_PATH_TPL, gatewayId, sessionId);
                     // 推送端点事件：告知前端消息接收地址
-                    emit(vo.getSink(), "endpoint", "/" + gatewayId + "/mcp/message?sessionId=" + sessionId);
+                    emit(vo.getSink(), "endpoint", endpoint);
 
                     log.info("创建会话 sessionId={}, 当前会话数={}", sessionId, activeSessions.size());
 
