@@ -1,63 +1,67 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="cn.bugstack.ai.infrastructure.dao.IMcpProtocolMappingDao">
+<mapper namespace="com.c.infrastructure.dao.McpProtocolMappingDao">
 
-    <resultMap id="McpProtocolMappingMap" type="cn.bugstack.ai.infrastructure.dao.po.McpProtocolMappingPO">
-        <id column="id" property="id"/>
-        <result column="gateway_id" property="gatewayId"/>
-        <result column="tool_id" property="toolId"/>
-        <result column="mapping_type" property="mappingType"/>
-        <result column="parent_path" property="parentPath"/>
-        <result column="field_name" property="fieldName"/>
-        <result column="mcp_path" property="mcpPath"/>
-        <result column="mcp_type" property="mcpType"/>
-        <result column="mcp_desc" property="mcpDesc"/>
-        <result column="is_required" property="isRequired"/>
-        <result column="http_path" property="httpPath"/>
-        <result column="http_location" property="httpLocation"/>
-        <result column="sort_order" property="sortOrder"/>
-        <result column="create_time" property="createTime"/>
-        <result column="update_time" property="updateTime"/>
+    <resultMap id="mcpProtocolMappingMap" type="com.c.infrastructure.dao.po.McpProtocolMappingPO">
+        <id property="id" column="id"/>
+        <result property="gatewayId" column="gateway_id"/>
+        <result property="toolId" column="tool_id"/>
+        <result property="mappingType" column="mapping_type"/>
+        <result property="parentPath" column="parent_path"/>
+        <result property="fieldName" column="field_name"/>
+        <result property="mcpPath" column="mcp_path"/>
+        <result property="mcpType" column="mcp_type"/>
+        <result property="mcpDesc" column="mcp_desc"/>
+        <result property="isRequired" column="is_required"/>
+        <result property="httpPath" column="http_path"/>
+        <result property="httpLocation" column="http_location"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
     </resultMap>
 
-    <insert id="insert" parameterType="cn.bugstack.ai.infrastructure.dao.po.McpProtocolMappingPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_protocol_mapping (gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path, mcp_type, mcp_desc, is_required, http_path, http_location, sort_order)
-        VALUES (#{gatewayId}, #{toolId}, #{mappingType}, #{parentPath}, #{fieldName}, #{mcpPath}, #{mcpType}, #{mcpDesc}, #{isRequired}, #{httpPath}, #{httpLocation}, #{sortOrder})
+    <sql id="all_columns">
+        id, gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path,
+        mcp_type, mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_protocol_mapping (gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path, mcp_type,
+                                          mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time)
+        VALUES (#{gatewayId}, #{toolId}, #{mappingType}, #{parentPath}, #{fieldName}, #{mcpPath}, #{mcpType},
+                #{mcpDesc}, #{isRequired}, #{httpPath}, #{httpLocation}, #{sortOrder}, NOW(), NOW())
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE FROM mcp_protocol_mapping WHERE id = #{id}
+        DELETE
+        FROM mcp_protocol_mapping
+        WHERE id = #{id}
     </delete>
 
-    <update id="updateById" parameterType="cn.bugstack.ai.infrastructure.dao.po.McpProtocolMappingPO">
+    <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO">
         UPDATE mcp_protocol_mapping
-        SET gateway_id = #{gatewayId},
-            tool_id = #{toolId},
-            mapping_type = #{mappingType},
-            parent_path = #{parentPath},
-            field_name = #{fieldName},
-            mcp_path = #{mcpPath},
-            mcp_type = #{mcpType},
-            mcp_desc = #{mcpDesc},
-            is_required = #{isRequired},
-            http_path = #{httpPath},
-            http_location = #{httpLocation},
-            sort_order = #{sortOrder},
+        <set>
+            <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
+            <if test="toolId != null">tool_id = #{toolId},</if>
+            <if test="mappingType != null">mapping_type = #{mappingType},</if>
+            <if test="fieldName != null">field_name = #{fieldName},</if>
+            <if test="mcpPath != null">mcp_path = #{mcpPath},</if>
+            <if test="isRequired != null">is_required = #{isRequired},</if>
             update_time = NOW()
+        </set>
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="McpProtocolMappingMap">
-        SELECT id, gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path, mcp_type, mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time
-        FROM mcp_protocol_mapping
-        WHERE id = #{id}
+    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpProtocolMappingMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_protocol_mapping WHERE id = #{id}
     </select>
 
-    <select id="queryAll" resultMap="McpProtocolMappingMap">
-        SELECT id, gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path, mcp_type, mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time
-        FROM mcp_protocol_mapping
-        ORDER BY id DESC
+    <select id="queryAll" resultMap="mcpProtocolMappingMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_protocol_mapping ORDER BY sort_order ASC
     </select>
 
 </mapper>
-

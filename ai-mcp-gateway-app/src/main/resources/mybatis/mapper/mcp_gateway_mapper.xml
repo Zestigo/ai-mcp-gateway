@@ -1,55 +1,60 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="cn.bugstack.ai.infrastructure.dao.IMcpGatewayDao">
+<mapper namespace="com.c.infrastructure.dao.McpGatewayDao">
 
-    <resultMap id="McpGatewayMap" type="cn.bugstack.ai.infrastructure.dao.po.McpGatewayPO">
-        <id column="id" property="id"/>
-        <result column="gateway_id" property="gatewayId"/>
-        <result column="gateway_name" property="gatewayName"/>
-        <result column="gateway_desc" property="gatewayDesc"/>
-        <result column="status" property="status"/>
-        <result column="create_time" property="createTime"/>
-        <result column="update_time" property="updateTime"/>
+    <resultMap id="mcpGatewayMap" type="com.c.infrastructure.dao.po.McpGatewayPO">
+        <id property="id" column="id"/>
+        <result property="gatewayId" column="gateway_id"/>
+        <result property="gatewayName" column="gateway_name"/>
+        <result property="gatewayDesc" column="gateway_desc"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
     </resultMap>
 
-    <insert id="insert" parameterType="cn.bugstack.ai.infrastructure.dao.po.McpGatewayPO" useGeneratedKeys="true"
-            keyProperty="id">
-        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_desc, status)
-        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDesc}, #{status})
+    <sql id="all_columns">
+        id, gateway_id, gateway_name, gateway_desc, status, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_desc, status, create_time, update_time)
+        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDesc}, #{status}, NOW(), NOW())
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE FROM mcp_gateway WHERE id = #{id}
+        DELETE
+        FROM mcp_gateway
+        WHERE id = #{id}
     </delete>
 
-    <update id="updateById" parameterType="cn.bugstack.ai.infrastructure.dao.po.McpGatewayPO">
+    <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
         UPDATE mcp_gateway
-        SET gateway_id = #{gatewayId},
-        gateway_name = #{gatewayName},
-        gateway_desc = #{gatewayDesc},
-        status = #{status},
-        update_time = NOW()
+        <set>
+            <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
+            <if test="gatewayName != null">gateway_name = #{gatewayName},</if>
+            <if test="gatewayDesc != null">gateway_desc = #{gatewayDesc},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="McpGatewayMap">
-        SELECT id, gateway_id, gateway_name, gateway_desc, status, create_time, update_time
-        FROM mcp_gateway
-        WHERE id = #{id}
+    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway WHERE id = #{id}
     </select>
 
-    <select id="queryAll" resultMap="McpGatewayMap">
-        SELECT id, gateway_id, gateway_name, gateway_desc, status, create_time, update_time
+    <select id="queryAll" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
         FROM mcp_gateway
-        ORDER BY id DESC
     </select>
 
-    <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String"
-            resultMap="McpGatewayMap">
-        SELECT id, gateway_id, gateway_name, gateway_desc, status
-        FROM mcp_gateway
-        WHERE gateway_id = #{gatewayId}
+    <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway WHERE gateway_id = #{gatewayId}
     </select>
 
 </mapper>
-
