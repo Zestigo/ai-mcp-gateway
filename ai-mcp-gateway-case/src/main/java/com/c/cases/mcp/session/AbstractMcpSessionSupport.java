@@ -18,9 +18,8 @@ import reactor.core.publisher.Flux;
  * @date 2026/03/24
  */
 @Slf4j
-public abstract class AbstractMcpSessionSupport
-        extends AbstractMultiThreadStrategyRouter<String, DefaultMcpSessionFactory.DynamicContext,
-        Flux<ServerSentEvent<String>>> {
+public abstract class AbstractMcpSessionSupport extends AbstractMultiThreadStrategyRouter<String,
+        DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> {
 
     /** 会话管理服务 */
     @Resource
