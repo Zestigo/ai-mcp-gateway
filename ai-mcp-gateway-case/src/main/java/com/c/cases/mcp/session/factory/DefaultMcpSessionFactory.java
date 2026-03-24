@@ -1,7 +1,7 @@
 package com.c.cases.mcp.session.factory;
 
 import com.c.cases.mcp.api.model.McpSessionRequest;
-import com.c.cases.mcp.framework.routing.StrategyHandler;
+import com.c.cases.mcp.framework.tree.StrategyHandler;
 import com.c.cases.mcp.session.node.RootNode;
 import com.c.domain.session.model.entity.McpSession;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;

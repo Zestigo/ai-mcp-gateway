@@ -1,6 +1,6 @@
 package com.c.cases.mcp.session;
 
-import com.c.cases.mcp.framework.routing.AbstractMultiThreadStrategyRouter;
+import com.c.cases.mcp.framework.tree.AbstractMultiThreadStrategyRouter;
 import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
 import com.c.domain.session.adapter.repository.McpGatewayConfigRepository;
 import com.c.domain.session.adapter.repository.SessionSsePort;

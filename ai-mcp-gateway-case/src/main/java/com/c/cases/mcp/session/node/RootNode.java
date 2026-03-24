@@ -1,6 +1,6 @@
 package com.c.cases.mcp.session.node;
 
-import com.c.cases.mcp.framework.routing.StrategyHandler;
+import com.c.cases.mcp.framework.tree.StrategyHandler;
 import com.c.cases.mcp.session.AbstractMcpSessionSupport;
 import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
 import lombok.extern.slf4j.Slf4j;

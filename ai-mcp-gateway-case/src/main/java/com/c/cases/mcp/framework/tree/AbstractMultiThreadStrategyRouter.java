@@ -1,4 +1,4 @@
-package com.c.cases.mcp.framework.routing;
+package com.c.cases.mcp.framework.tree;
 
 /**
  * 多线程策略路由抽象类

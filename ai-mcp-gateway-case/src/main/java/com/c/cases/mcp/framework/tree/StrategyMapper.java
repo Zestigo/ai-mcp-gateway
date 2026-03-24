@@ -1,4 +1,4 @@
-package com.c.cases.mcp.framework.routing;
+package com.c.cases.mcp.framework.tree;
 
 /**
  * 策略映射器接口
