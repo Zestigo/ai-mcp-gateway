@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.McpGatewayConfigRepository;
+import com.c.domain.session.adapter.repository.GatewayConfigRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
@@ -23,7 +23,7 @@ public class RootsListHandler implements IRequestHandler {
 
     /** 网关配置仓储 */
     @Resource
-    private McpGatewayConfigRepository gatewayConfigRepository;
+    private GatewayConfigRepository gatewayConfigRepository;
 
     /**
      * 处理根目录查询

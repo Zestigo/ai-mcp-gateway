@@ -8,6 +8,7 @@ import com.c.domain.session.model.entity.McpSession;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -30,10 +31,18 @@ import java.util.UUID;
 public class McpSessionServiceImpl implements McpSessionService {
 
     /** 会话仓储 */
-    private final McpSessionRepository repository;
+    private final McpSessionRepository mcpSessionRepository;
 
     /** SSE通道适配器 */
     private final SessionSsePort sessionSsePort;
+
+    /** 服务完整地址 */
+    @Value("${service.full-url}")
+    private String serviceFullUrl;
+
+    /** 应用上下文路径 */
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     /**
      * 根据网关ID快速创建会话
@@ -73,7 +82,7 @@ public class McpSessionServiceImpl implements McpSessionService {
             // 创建会话实体
             McpSession session = new McpSession(sessionId, gatewayId, timeout);
             // 保存会话到仓储
-            repository.save(session);
+            mcpSessionRepository.save(session);
 
             // 创建SSE消息推送通道
             Sinks.Many<ServerSentEvent<String>> sink = sessionSsePort.create(sessionId);
@@ -82,7 +91,9 @@ public class McpSessionServiceImpl implements McpSessionService {
 
             // 构造客户端消息接收端点完整路径
             String endpointPath =
-                    "http://127.0.0.1:8091" + "/api-gateway/api/v1/gateways/" + gatewayId + "/sessions" + "/" + sessionId + "/messages";
+                    serviceFullUrl + contextPath + "/api/v1/gateways/" + gatewayId + "/sessions/" + sessionId +
+                            "/messages";
+
             // 构造endpoint推送事件
             ServerSentEvent<String> endpointEvent = ServerSentEvent
                     .<String>builder()
@@ -150,7 +161,7 @@ public class McpSessionServiceImpl implements McpSessionService {
      */
     public void broadcast(String gatewayId, Object message) {
         // 获取网关下所有会话ID
-        Set<String> sessionIds = repository.findByGateway(gatewayId);
+        Set<String> sessionIds = mcpSessionRepository.findByGateway(gatewayId);
 
         // 遍历所有会话进行消息推送
         for (String sessionId : sessionIds) {
@@ -180,7 +191,7 @@ public class McpSessionServiceImpl implements McpSessionService {
     private void cleanup(String sessionId) {
         try {
             // 从仓储删除会话
-            repository.remove(sessionId);
+            mcpSessionRepository.remove(sessionId);
             // 关闭并移除SSE通道
             sessionSsePort.remove(sessionId);
             log.info("释放会话 | sessionId={}", sessionId);

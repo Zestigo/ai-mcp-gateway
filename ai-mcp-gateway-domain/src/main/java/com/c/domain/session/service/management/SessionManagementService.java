@@ -2,7 +2,6 @@ package com.c.domain.session.service.management;
 
 import com.c.domain.session.adapter.repository.McpSessionRepository;
 import com.c.domain.session.model.entity.McpSession;
-import com.c.domain.session.service.ISessionManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
@@ -27,7 +26,7 @@ import java.util.Objects;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SessionManagementService implements ISessionManagementService, InitializingBean, DisposableBean {
+public class SessionManagementService implements com.c.domain.session.service.SessionManagementService, InitializingBean, DisposableBean {
 
     /** 最大会话数量 */
     private static final int MAX_SESSIONS = 10000;

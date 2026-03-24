@@ -1,5 +1,6 @@
 package com.c.infrastructure.adapter.repository;
 
+import com.c.domain.session.adapter.repository.McpSessionRepository;
 import com.c.domain.session.model.entity.McpSession;
 import org.springframework.stereotype.Repository;
 
@@ -13,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date 2026/03/24
  */
 @Repository
-public class McpSessionRepository implements com.c.domain.session.adapter.repository.McpSessionRepository {
+public class McpSessionRepositoryImpl implements McpSessionRepository {
 
     /** 会话存储 */
     private final Map<String, McpSession> sessions = new ConcurrentHashMap<>();

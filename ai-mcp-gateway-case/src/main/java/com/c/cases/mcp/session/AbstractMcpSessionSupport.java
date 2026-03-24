@@ -2,9 +2,9 @@ package com.c.cases.mcp.session;
 
 import com.c.cases.mcp.framework.tree.AbstractMultiThreadStrategyRouter;
 import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
-import com.c.domain.session.adapter.repository.McpGatewayConfigRepository;
+import com.c.domain.session.adapter.repository.GatewayConfigRepository;
 import com.c.domain.session.adapter.repository.SessionSsePort;
-import com.c.domain.session.service.ISessionManagementService;
+import com.c.domain.session.service.SessionManagementService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -23,7 +23,7 @@ public abstract class AbstractMcpSessionSupport extends AbstractMultiThreadStrat
 
     /** 会话管理服务 */
     @Resource
-    protected ISessionManagementService sessionManagementService;
+    protected SessionManagementService sessionManagementService;
 
     /** SSE通道存储接口 */
     @Resource
@@ -31,7 +31,7 @@ public abstract class AbstractMcpSessionSupport extends AbstractMultiThreadStrat
 
     /** 网关配置仓储接口 */
     @Resource
-    protected McpGatewayConfigRepository sessionRepository;
+    protected GatewayConfigRepository gatewayConfigRepository;
 
     /**
      * 会话流程默认不启用多线程并发

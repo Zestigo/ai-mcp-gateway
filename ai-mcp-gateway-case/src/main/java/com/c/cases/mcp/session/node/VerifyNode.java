@@ -37,7 +37,7 @@ public class VerifyNode extends AbstractMcpSessionSupport {
         log.info("VerifyNode 校验 | gatewayId={}", request);
 
         // 查询网关配置信息
-        var config = sessionRepository.queryMcpGatewayConfigByGatewayId(request);
+        var config = gatewayConfigRepository.queryMcpGatewayConfigByGatewayId(request);
         // 配置不存在则抛出业务异常
         if (config == null) {
             throw new AppException("0003", "未找到网关配置: " + request);

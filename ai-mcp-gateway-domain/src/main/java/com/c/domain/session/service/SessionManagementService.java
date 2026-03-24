@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
  * @author cyh
  * @date 2026/03/24
  */
-public interface ISessionManagementService {
+public interface SessionManagementService {
 
     /**
      * 创建会话

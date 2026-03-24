@@ -14,6 +14,11 @@ thread:
         block-queue-size: 5000    # 任务阻塞队列容量
         policy: CallerRunsPolicy  # 线程池拒绝策略：调用者执行策略
 
+# 服务地址配置
+service:
+  base-url: ${server.host:127.0.0.1}:${server.port:8091}
+  full-url: http://${service.base-url}
+
 # 数据库配置 - 基础连接信息
 spring:
   datasource:

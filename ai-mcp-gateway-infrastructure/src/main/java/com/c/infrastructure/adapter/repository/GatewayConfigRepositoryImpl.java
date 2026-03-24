@@ -1,6 +1,6 @@
 package com.c.infrastructure.adapter.repository;
 
-import com.c.domain.session.adapter.repository.McpGatewayConfigRepository;
+import com.c.domain.session.adapter.repository.GatewayConfigRepository;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
 import org.springframework.stereotype.Repository;
 
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date 2026/03/24
  */
 @Repository
-public class GatewayConfigRepository implements McpGatewayConfigRepository {
+public class GatewayConfigRepositoryImpl implements GatewayConfigRepository {
 
     /** 配置存储 */
     private final Map<String, McpGatewayConfigVO> store = new ConcurrentHashMap<>();

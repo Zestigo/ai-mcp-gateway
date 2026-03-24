@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import jakarta.annotation.Resource;
 import org.junit.Test;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 
@@ -23,6 +24,14 @@ public class ApiTest {
     /** AI聊天客户端构建器 */
     @Resource
     private ChatClient.Builder chatClientBuilder;
+
+    /** 服务完整地址 */
+    @Value("${service.full-url}")
+    private String serviceFullUrl;
+
+    /** 应用上下文路径 */
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     /**
      * 测试MCP工具调用能力，通过ChatClient调用MCP客户端提供的工具
@@ -55,11 +64,16 @@ public class ApiTest {
      * @return 百度MCP同步客户端实例
      */
     public McpSyncClient sseMcpClient01() {
+        // 从环境变量获取API Key
+        String apiKey = System.getenv("BAIDU_API_KEY");
+        if (apiKey == null) {
+            apiKey = "bce-v3/ALTAK-IfztT89f0wQhg5qXYWBKC/af5bec8877b2402a44718e1a9946b1683418ca41";
+        }
+
         // 构建百度MCP的SSE传输层，指定地址和带API Key的端点
         HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
                 .builder("http://appbuilder.baidu.com")
-                .sseEndpoint("/v2/ai_search/mcp/sse?api_key=bce-v3/ALTAK-IfztT89f0wQhg5qXYWBKC" +
-                        "/af5bec8877b2402a44718e1a9946b1683418ca41")
+                .sseEndpoint("/v2/ai_search/mcp/sse?api_key=" + apiKey)
                 .build();
 
         // 构建同步客户端，设置36000分钟请求超时
@@ -80,12 +94,15 @@ public class ApiTest {
      * @return 本地MCP同步客户端实例
      */
     public McpSyncClient sseMcpClient02() {
+        // 构建完整的 SSE 端点 URL
+        String sseEndpoint = "/api/v1/gateways/test001/sse";
+        String fullEndpoint = contextPath + sseEndpoint;
 
-        HttpClientSseClientTransport sseClientTransport =
-                HttpClientSseClientTransport
-                        .builder("http://127.0.0.1:8091")
-                        .sseEndpoint("/api-gateway/api/v1/gateways/test001/sse")
-                        .build();
+        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
+                .builder(serviceFullUrl)
+                .sseEndpoint(sseEndpoint)
+                .build();
+
         McpSyncClient mcpSyncClient = McpClient
                 .sync(sseClientTransport)
                 .requestTimeout(Duration.ofMinutes(5))

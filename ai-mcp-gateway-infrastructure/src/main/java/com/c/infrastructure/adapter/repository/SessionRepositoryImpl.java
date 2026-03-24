@@ -1,9 +1,9 @@
 package com.c.infrastructure.adapter.repository;
 
-import com.c.domain.session.adapter.repository.ISessionRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
-import com.c.infrastructure.dao.IMcpGatewayDao;
-import com.c.infrastructure.dao.IMcpProtocolRegistryDao;
+import com.c.infrastructure.dao.McpGatewayDao;
+import com.c.infrastructure.dao.McpProtocolRegistryDao;
 import com.c.infrastructure.dao.po.McpGatewayPO;
 import com.c.infrastructure.dao.po.McpProtocolRegistryPO;
 import jakarta.annotation.Resource;
@@ -18,15 +18,15 @@ import org.springframework.stereotype.Repository;
  */
 @Slf4j
 @Repository
-public class SessionRepository implements ISessionRepository {
+public class SessionRepositoryImpl implements SessionRepository {
 
     /** 网关配置数据访问接口 */
     @Resource
-    private IMcpGatewayDao mcpGatewayDao;
+    private McpGatewayDao mcpGatewayDao;
 
     /** MCP工具注册数据访问接口 */
     @Resource
-    private IMcpProtocolRegistryDao mcpProtocolRegistryDao;
+    private McpProtocolRegistryDao mcpProtocolRegistryDao;
 
     /**
      * 根据网关ID查询网关协议配置
