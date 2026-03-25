@@ -6,10 +6,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 网关协议配置值对象
+ * MCP 网关基础配置值对象
+ * 用于封装网关标识、名称及关联工具的核心配置信息
  *
  * @author cyh
- * @date 2026/03/24
+ * @date 2026/03/25
  */
 @Getter
 @Builder
@@ -19,14 +20,19 @@ public class McpGatewayConfigVO {
 
     /** 网关唯一标识 */
     private String gatewayId;
+
     /** 网关名称 */
     private String gatewayName;
-    /** 工具ID */
+
+    /** 关联工具唯一标识 */
     private Long toolId;
-    /** 工具名称 */
+
+    /** MCP 工具名称 */
     private String toolName;
-    /** 工具描述 */
-    private String toolDesc;
-    /** 工具版本 */
+
+    /** MCP 工具描述信息 */
+    private String toolDescription;
+
+    /** MCP 工具版本号 */
     private String toolVersion;
 }

@@ -2,7 +2,7 @@ package com.c.cases.mcp.session;
 
 import com.c.cases.mcp.framework.tree.AbstractMultiThreadStrategyRouter;
 import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
-import com.c.domain.session.adapter.repository.GatewayConfigRepository;
+import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.adapter.repository.SessionSsePort;
 import com.c.domain.session.service.SessionManagementService;
 import jakarta.annotation.Resource;
@@ -31,7 +31,7 @@ public abstract class AbstractMcpSessionSupport extends AbstractMultiThreadStrat
 
     /** 网关配置仓储接口 */
     @Resource
-    protected GatewayConfigRepository gatewayConfigRepository;
+    protected GatewayRepository gatewayRepository;
 
     /**
      * 会话流程默认不启用多线程并发

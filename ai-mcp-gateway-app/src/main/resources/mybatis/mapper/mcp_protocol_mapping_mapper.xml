@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="com.c.infrastructure.dao.McpProtocolMappingDao">
 
     <resultMap id="mcpProtocolMappingMap" type="com.c.infrastructure.dao.po.McpProtocolMappingPO">
@@ -11,7 +13,7 @@
         <result property="fieldName" column="field_name"/>
         <result property="mcpPath" column="mcp_path"/>
         <result property="mcpType" column="mcp_type"/>
-        <result property="mcpDesc" column="mcp_desc"/>
+        <result property="mcpDescription" column="mcp_description"/>
         <result property="isRequired" column="is_required"/>
         <result property="httpPath" column="http_path"/>
         <result property="httpLocation" column="http_location"/>
@@ -21,21 +23,27 @@
     </resultMap>
 
     <sql id="all_columns">
-        id, gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path,
-        mcp_type, mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time
+        id, gateway_id, tool_id, mapping_type, parent_path, field_name,
+        mcp_path, mcp_type, mcp_description, is_required,
+        http_path, http_location, sort_order, create_time, update_time
     </sql>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_protocol_mapping (gateway_id, tool_id, mapping_type, parent_path, field_name, mcp_path, mcp_type,
-                                          mcp_desc, is_required, http_path, http_location, sort_order, create_time, update_time)
-        VALUES (#{gatewayId}, #{toolId}, #{mappingType}, #{parentPath}, #{fieldName}, #{mcpPath}, #{mcpType},
-                #{mcpDesc}, #{isRequired}, #{httpPath}, #{httpLocation}, #{sortOrder}, NOW(), NOW())
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_protocol_mapping (
+            gateway_id, tool_id, mapping_type, parent_path, field_name,
+            mcp_path, mcp_type, mcp_description, is_required,
+            http_path, http_location, sort_order, create_time, update_time
+        )
+        VALUES (
+                   #{gatewayId}, #{toolId}, #{mappingType}, #{parentPath}, #{fieldName},
+                   #{mcpPath}, #{mcpType}, #{mcpDescription}, #{isRequired},
+                   #{httpPath}, #{httpLocation}, #{sortOrder}, NOW(), NOW()
+               )
     </insert>
 
-    <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE
-        FROM mcp_protocol_mapping
-        WHERE id = #{id}
+    <delete id="deleteById">
+        DELETE FROM mcp_protocol_mapping WHERE id = #{value}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO">
@@ -44,24 +52,37 @@
             <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
             <if test="toolId != null">tool_id = #{toolId},</if>
             <if test="mappingType != null">mapping_type = #{mappingType},</if>
+            <if test="parentPath != null">parent_path = #{parentPath},</if>
             <if test="fieldName != null">field_name = #{fieldName},</if>
             <if test="mcpPath != null">mcp_path = #{mcpPath},</if>
+            <if test="mcpType != null">mcp_type = #{mcpType},</if>
+            <if test="mcpDescription != null">mcp_description = #{mcpDescription},</if>
             <if test="isRequired != null">is_required = #{isRequired},</if>
+            <if test="httpPath != null">http_path = #{httpPath},</if>
+            <if test="httpLocation != null">http_location = #{httpLocation},</if>
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
             update_time = NOW()
         </set>
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpProtocolMappingMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_protocol_mapping WHERE id = #{id}
+    <select id="queryById" resultMap="mcpProtocolMappingMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_protocol_mapping
+        WHERE id = #{value}
     </select>
 
     <select id="queryAll" resultMap="mcpProtocolMappingMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_protocol_mapping ORDER BY sort_order ASC
+        SELECT <include refid="all_columns"/>
+        FROM mcp_protocol_mapping
+        ORDER BY sort_order ASC
+    </select>
+
+    <select id="queryMcpGatewayToolConfigList" resultMap="mcpProtocolMappingMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_protocol_mapping
+        WHERE gateway_id = #{gatewayId}
+        ORDER BY sort_order ASC
     </select>
 
 </mapper>

@@ -1,6 +1,8 @@
 package com.c.domain.session.model.entity;
 
+import lombok.Data;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -11,7 +13,7 @@ import java.time.Instant;
  * @author cyh
  * @date 2026/03/24
  */
-@Getter
+@Data
 public class McpSession {
 
     /** 默认超时时间（秒） */

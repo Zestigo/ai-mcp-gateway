@@ -1,30 +1,34 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="com.c.infrastructure.dao.McpGatewayDao">
 
     <resultMap id="mcpGatewayMap" type="com.c.infrastructure.dao.po.McpGatewayPO">
         <id property="id" column="id"/>
         <result property="gatewayId" column="gateway_id"/>
         <result property="gatewayName" column="gateway_name"/>
-        <result property="gatewayDesc" column="gateway_desc"/>
+        <result property="gatewayDescription" column="gateway_description"/>
         <result property="status" column="status"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
     <sql id="all_columns">
-        id, gateway_id, gateway_name, gateway_desc, status, create_time, update_time
+        id, gateway_id, gateway_name, gateway_description, status, create_time, update_time
     </sql>
 
     <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_desc, status, create_time, update_time)
-        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDesc}, #{status}, NOW(), NOW())
+        INSERT INTO mcp_gateway (
+            gateway_id, gateway_name, gateway_description, status, create_time, update_time
+        )
+        VALUES (
+                   #{gatewayId}, #{gatewayName}, #{gatewayDescription}, #{status}, NOW(), NOW()
+               )
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE
-        FROM mcp_gateway
-        WHERE id = #{id}
+        DELETE FROM mcp_gateway WHERE id = #{value}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
@@ -32,7 +36,7 @@
         <set>
             <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
             <if test="gatewayName != null">gateway_name = #{gatewayName},</if>
-            <if test="gatewayDesc != null">gateway_desc = #{gatewayDesc},</if>
+            <if test="gatewayDescription != null">gateway_description = #{gatewayDescription},</if>
             <if test="status != null">status = #{status},</if>
             update_time = NOW()
         </set>
@@ -40,21 +44,20 @@
     </update>
 
     <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_gateway WHERE id = #{id}
+        SELECT <include refid="all_columns"/>
+        FROM mcp_gateway
+        WHERE id = #{value}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayMap">
-        SELECT
-        <include refid="all_columns"/>
+        SELECT <include refid="all_columns"/>
         FROM mcp_gateway
     </select>
 
     <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_gateway WHERE gateway_id = #{gatewayId}
+        SELECT <include refid="all_columns"/>
+        FROM mcp_gateway
+        WHERE gateway_id = #{gatewayId}
     </select>
 
 </mapper>

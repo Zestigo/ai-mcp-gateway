@@ -24,8 +24,9 @@ spring:
   datasource:
     username: root
     password: 123456
-    url: jdbc:mysql://192.168.21.130:3306/ai_mcp_gateway?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true
+    url: jdbc:mysql://192.168.21.130:13306/ai_mcp_gateway?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   # AI配置 - 阿里云通义千问兼容OpenAI接口配置
   ai:
     openai:
@@ -48,9 +49,9 @@ spring:
   type: com.zaxxer.hikari.HikariDataSource  # 数据源类型：HikariCP
 
 # MyBatis 配置【如需使用请启用】
-#mybatis:
-#  mapper-locations: classpath:/mybatis/mapper/*.xml  # Mapper映射文件路径
-#  config-location:  classpath:/mybatis/config/mybatis-config.xml  # MyBatis核心配置文件路径
+mybatis:
+  mapper-locations: classpath:/mybatis/mapper/*.xml  # Mapper映射文件路径
+  config-location: classpath:/mybatis/config/mybatis-config.xml  # MyBatis核心配置文件路径
 
 # 日志配置
 logging:

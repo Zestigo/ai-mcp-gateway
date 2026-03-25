@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="com.c.infrastructure.dao.McpProtocolRegistryDao">
 
     <resultMap id="mcpProtocolRegistryMap" type="com.c.infrastructure.dao.po.McpProtocolRegistryPO">
@@ -21,53 +23,65 @@
     </resultMap>
 
     <sql id="all_columns">
-        id, gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version,
-        http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
+        id, gateway_id, tool_id, tool_name, tool_type, tool_description,
+        tool_version, http_url, http_method, http_headers,
+        timeout, retry_times, status, create_time, update_time
     </sql>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolRegistryPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_protocol_registry (gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version,
-                                           http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time)
-        VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolDescription}, #{toolVersion},
-                #{httpUrl}, #{httpMethod}, #{httpHeaders}, #{timeout}, #{retryTimes}, #{status}, NOW(), NOW())
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolRegistryPO"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_protocol_registry (
+            gateway_id, tool_id, tool_name, tool_type, tool_description,
+            tool_version, http_url, http_method, http_headers,
+            timeout, retry_times, status, create_time, update_time
+        )
+        VALUES (
+                   #{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolDescription},
+                   #{toolVersion}, #{httpUrl}, #{httpMethod}, #{httpHeaders},
+                   #{timeout}, #{retryTimes}, #{status}, NOW(), NOW()
+               )
     </insert>
 
-    <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE
-        FROM mcp_protocol_registry
-        WHERE id = #{id}
+    <delete id="deleteById">
+        DELETE FROM mcp_protocol_registry WHERE id = #{value}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpProtocolRegistryPO">
         UPDATE mcp_protocol_registry
         <set>
             <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
+            <if test="toolId != null">tool_id = #{toolId},</if>
             <if test="toolName != null">tool_name = #{toolName},</if>
+            <if test="toolType != null">tool_type = #{toolType},</if>
             <if test="toolDescription != null">tool_description = #{toolDescription},</if>
+            <if test="toolVersion != null">tool_version = #{toolVersion},</if>
             <if test="httpUrl != null">http_url = #{httpUrl},</if>
+            <if test="httpMethod != null">http_method = #{httpMethod},</if>
+            <if test="httpHeaders != null">http_headers = #{httpHeaders},</if>
+            <if test="timeout != null">timeout = #{timeout},</if>
+            <if test="retryTimes != null">retry_times = #{retryTimes},</if>
             <if test="status != null">status = #{status},</if>
             update_time = NOW()
         </set>
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpProtocolRegistryMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_protocol_registry WHERE id = #{id}
+    <select id="queryById" resultMap="mcpProtocolRegistryMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_protocol_registry
+        WHERE id = #{value}
     </select>
 
     <select id="queryAll" resultMap="mcpProtocolRegistryMap">
-        SELECT
-        <include refid="all_columns"/>
+        SELECT <include refid="all_columns"/>
         FROM mcp_protocol_registry
     </select>
 
-    <select id="queryMcpProtocolRegistryByGatewayId" parameterType="java.lang.String" resultMap="mcpProtocolRegistryMap">
-        SELECT
-        <include refid="all_columns"/>
+    <select id="queryMcpProtocolRegistryByGatewayId" resultMap="mcpProtocolRegistryMap">
+        SELECT <include refid="all_columns"/>
         FROM mcp_protocol_registry
-        WHERE gateway_id = #{gatewayId} AND status = 1
+        WHERE gateway_id = #{gatewayId}
+        AND status = 1
     </select>
 
 </mapper>

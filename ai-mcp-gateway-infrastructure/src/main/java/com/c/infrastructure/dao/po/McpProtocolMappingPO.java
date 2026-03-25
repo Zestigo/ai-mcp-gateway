@@ -8,10 +8,12 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * MCP映射配置表：存储MCP协议与HTTP接口的字段映射关系
+ * MCP协议字段映射持久化对象
+ * 对应数据库MCP映射配置表，用于存储MCP协议与HTTP接口之间的请求/响应字段映射规则
+ * 支持嵌套结构构建、参数位置指定、数据类型定义等核心映射配置
  *
  * @author cyh
- * @date 2026/03/23
+ * @date 2026/03/25
  */
 @Data
 @Builder
@@ -19,35 +21,49 @@ import java.util.Date;
 @AllArgsConstructor
 public class McpProtocolMappingPO {
 
-    /** 主键ID */
+    /** 数据库自增主键ID */
     private Long id;
-    /** 所属网关ID */
+
+    /** 所属网关唯一标识，关联对应的网关配置 */
     private String gatewayId;
-    /** 所属工具ID */
+
+    /** 所属工具唯一标识，关联对应的MCP工具配置 */
     private Long toolId;
-    /** 映射类型：request-请求参数映射，response-响应数据映射 */
+
+    /** 映射类型，request-请求参数映射，response-响应数据映射 */
     private String mappingType;
-    /** 父级路径：用于构建嵌套结构，根节点为NULL */
+
+    /** 父级路径，用于构建嵌套数据结构，根节点字段该值为NULL */
     private String parentPath;
-    /** 字段名称：如city、company、name */
+
+    /** 字段名称，对应业务字段标识，如city、company、name */
     private String fieldName;
-    /** MCP完整路径：如xxxRequest01.city、xxxRequest01.company.name */
+
+    /** MCP协议完整路径，格式如xxxRequest01.city、xxxRequest01.company.name */
     private String mcpPath;
-    /** MCP数据类型：string/number/boolean/object/array */
+
+    /** MCP协议数据类型，支持string/number/boolean/object/array五种类型 */
     private String mcpType;
-    /** MCP字段描述 */
-    private String mcpDesc;
-    /** 是否必填：0-否，1-是（用于生成required数组） */
+
+    /** MCP协议字段描述，说明字段的含义和用途 */
+    private String mcpDescription;
+
+    /** 是否必填字段，0-非必填，1-必填，用于生成JSON Schema的required数组 */
     private Integer isRequired;
-    /** HTTP路径：JSON路径，如company.name 或 data.result */
+
+    /** HTTP接口数据路径，用于解析/赋值接口数据，如company.name 或 data.result */
     private String httpPath;
-    /** HTTP位置：body/query/path/header（仅对request类型有效） */
+
+    /** HTTP参数位置，仅对请求映射有效，支持body/query/path/header */
     private String httpLocation;
-    /** 排序顺序：同级字段排序 */
+
+    /** 排序顺序，用于控制同级字段的展示和生成顺序 */
     private Integer sortOrder;
-    /** 创建时间 */
+
+    /** 记录创建时间 */
     private Date createTime;
-    /** 更新时间 */
+
+    /** 记录更新时间 */
     private Date updateTime;
 
 }

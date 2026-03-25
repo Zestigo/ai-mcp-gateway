@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.c.infrastructure.dao.McpSessionDao">
+
+    <!-- ===================== ResultMap ===================== -->
+    <resultMap id="McpSessionMap" type="com.c.infrastructure.dao.po.McpSessionPO">
+        <id property="sessionId" column="session_id"/>
+        <result property="gatewayId" column="gateway_id"/>
+        <result property="active" column="active"/>
+        <result property="timeoutSeconds" column="timeout_seconds"/>
+        <result property="lastAccessTime" column="last_access_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <!-- ===================== Base Columns ===================== -->
+    <sql id="base_columns">
+        session_id,
+        gateway_id,
+        active,
+        timeout_seconds,
+        last_access_time,
+        create_time,
+        update_time
+    </sql>
+
+    <!-- ===================== Insert ===================== -->
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpSessionPO">
+        INSERT INTO mcp_session (session_id,
+                                 gateway_id,
+                                 active,
+                                 timeout_seconds,
+                                 last_access_time,
+                                 create_time,
+                                 update_time)
+        VALUES (#{sessionId},
+                #{gatewayId},
+                #{active},
+                #{timeoutSeconds},
+                #{lastAccessTime},
+                #{createTime},
+                #{updateTime})
+    </insert>
+
+    <!-- ===================== Query ===================== -->
+    <select id="selectBySessionId" resultMap="McpSessionMap">
+        SELECT
+        <include refid="base_columns"/>
+        FROM mcp_session
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="selectAll" resultMap="McpSessionMap">
+        SELECT
+        <include refid="base_columns"/>
+        FROM mcp_session
+    </select>
+
+    <select id="selectByGatewayId" resultMap="McpSessionMap">
+        SELECT
+        <include refid="base_columns"/>
+        FROM mcp_session
+        WHERE gateway_id = #{gatewayId}
+    </select>
+
+    <!-- ===================== Update ===================== -->
+    <update id="update" parameterType="com.c.infrastructure.dao.po.McpSessionPO">
+        UPDATE mcp_session
+        <set>
+            <if test="active != null">active = #{active},</if>
+            <if test="timeoutSeconds != null">timeout_seconds = #{timeoutSeconds},</if>
+            <if test="lastAccessTime != null">last_access_time = #{lastAccessTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <!-- ===================== Delete ===================== -->
+    <delete id="deleteBySessionId">
+        DELETE
+        FROM mcp_session
+        WHERE session_id = #{sessionId}
+    </delete>
+
+    <!-- ===================== Count ===================== -->
+    <select id="countActiveSessions" resultType="long">
+        SELECT COUNT(*)
+        FROM mcp_session
+        WHERE active = 1
+    </select>
+
+    <!-- ===================== Cleanup expired sessions (FIXED) ===================== -->
+    <delete id="deleteExpiredSessions">
+        DELETE
+        FROM mcp_session
+        WHERE (
+                  active = 0
+                      OR (
+                      last_access_time IS NOT NULL
+                          AND timeout_seconds IS NOT NULL
+                          AND timeout_seconds > 0
+                <![CDATA[
+                          AND last_access_time < DATE_SUB(NOW(), INTERVAL timeout_seconds SECOND)
+                ]]>
+            )
+                  )
+    </delete>
+
+</mapper>

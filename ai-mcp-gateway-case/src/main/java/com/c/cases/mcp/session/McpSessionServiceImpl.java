@@ -2,7 +2,7 @@ package com.c.cases.mcp.session;
 
 import com.c.cases.mcp.api.model.McpSessionRequest;
 import com.c.cases.mcp.api.service.McpSessionService;
-import com.c.domain.session.adapter.repository.McpSessionRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.adapter.repository.SessionSsePort;
 import com.c.domain.session.model.entity.McpSession;
 import com.c.domain.session.model.valobj.McpSchemaVO;
@@ -31,7 +31,7 @@ import java.util.UUID;
 public class McpSessionServiceImpl implements McpSessionService {
 
     /** 会话仓储 */
-    private final McpSessionRepository mcpSessionRepository;
+    private final SessionRepository sessionRepository;
 
     /** SSE通道适配器 */
     private final SessionSsePort sessionSsePort;
@@ -82,7 +82,7 @@ public class McpSessionServiceImpl implements McpSessionService {
             // 创建会话实体
             McpSession session = new McpSession(sessionId, gatewayId, timeout);
             // 保存会话到仓储
-            mcpSessionRepository.save(session);
+            sessionRepository.save(session);
 
             // 创建SSE消息推送通道
             Sinks.Many<ServerSentEvent<String>> sink = sessionSsePort.create(sessionId);
@@ -133,7 +133,12 @@ public class McpSessionServiceImpl implements McpSessionService {
 
         try {
             // 消息序列化：字符串直接使用，对象转JSON
-            String data = (message instanceof String s) ? s : McpSchemaVO.toJson(message);
+            String data;
+            if (message instanceof String) {
+                data = (String) message;
+            } else {
+                data = McpSchemaVO.toJson(message);
+            }
 
             // 尝试发送消息到客户端
             Sinks.EmitResult result = sink.tryEmitNext(ServerSentEvent
@@ -161,7 +166,7 @@ public class McpSessionServiceImpl implements McpSessionService {
      */
     public void broadcast(String gatewayId, Object message) {
         // 获取网关下所有会话ID
-        Set<String> sessionIds = mcpSessionRepository.findByGateway(gatewayId);
+        Set<String> sessionIds = sessionRepository.findByGateway(gatewayId);
 
         // 遍历所有会话进行消息推送
         for (String sessionId : sessionIds) {
@@ -191,7 +196,7 @@ public class McpSessionServiceImpl implements McpSessionService {
     private void cleanup(String sessionId) {
         try {
             // 从仓储删除会话
-            mcpSessionRepository.remove(sessionId);
+            sessionRepository.remove(sessionId);
             // 关闭并移除SSE通道
             sessionSsePort.remove(sessionId);
             log.info("释放会话 | sessionId={}", sessionId);

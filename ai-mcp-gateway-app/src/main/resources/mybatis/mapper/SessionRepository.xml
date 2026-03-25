@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="com.c.infrastructure.dao.McpGatewayAuthDao">
 
     <resultMap id="mcpGatewayAuthMap" type="com.c.infrastructure.dao.po.McpGatewayAuthPO">
@@ -17,18 +19,16 @@
         id, gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time
     </sql>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_gateway_auth (
-            gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time
-        ) VALUES (
-                     #{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW()
-                 )
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_gateway_auth (gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time)
+        VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW())
     </insert>
 
-    <delete id="deleteById" parameterType="java.lang.Long">
+    <delete id="deleteById">
         DELETE
         FROM mcp_gateway_auth
-        WHERE id = #{id}
+        WHERE id = #{value}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO">
@@ -44,12 +44,17 @@
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayAuthMap">
-        SELECT <include refid="all_columns"/> FROM mcp_gateway_auth WHERE id = #{id}
+    <select id="queryById" resultMap="mcpGatewayAuthMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
+        WHERE id = #{value}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayAuthMap">
-        SELECT <include refid="all_columns"/> FROM mcp_gateway_auth
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
     </select>
 
 </mapper>
