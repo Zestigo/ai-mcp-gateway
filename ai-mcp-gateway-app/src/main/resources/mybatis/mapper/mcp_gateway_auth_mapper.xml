@@ -25,10 +25,10 @@
         VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW())
     </insert>
 
-    <delete id="deleteById">
+    <delete id="deleteById" parameterType="java.lang.Long">
         DELETE
         FROM mcp_gateway_auth
-        WHERE id = #{value}
+        WHERE id = #{id}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO">
@@ -44,11 +44,11 @@
         WHERE id = #{id}
     </update>
 
-    <select id="queryById" resultMap="mcpGatewayAuthMap">
+    <select id="queryByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayAuthMap">
         SELECT
         <include refid="all_columns"/>
         FROM mcp_gateway_auth
-        WHERE id = #{value}
+        WHERE gateway_id = #{gatewayId}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayAuthMap">

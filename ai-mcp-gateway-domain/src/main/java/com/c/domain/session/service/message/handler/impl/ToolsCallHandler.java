@@ -1,69 +1,82 @@
 package com.c.domain.session.service.message.handler.impl;
 
+import com.c.domain.session.adapter.port.SessionPort;
 import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
-import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpGatewayProtocolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
+import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * MCP 工具调用处理器
- * 处理tools/call请求，接收客户端工具调用参数并返回处理结果
+ * MCP工具调用请求处理器
+ * 处理tools/call类型请求，完成协议解析、配置加载、接口调用与响应封装
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/26
  */
 @Slf4j
 @Service("toolsCallHandler")
 @RequiredArgsConstructor
 public class ToolsCallHandler implements IRequestHandler {
 
-    /** 网关配置仓储，用于查询工具配置信息 */
+    /** 网关配置仓储 */
     private final GatewayRepository gatewayRepository;
 
+    /** 会话服务端口 */
+    private final SessionPort sessionPort;
+
     /**
-     * 处理工具调用请求
+     * 处理MCP工具调用请求
      *
-     * @param gatewayId 网关唯一标识
-     * @param message   JSON-RPC请求消息
-     * @return 工具调用结果响应
+     * @param gatewayId 网关ID
+     * @param message   JSON-RPC消息
+     * @return 响应结果流
      */
     @Override
     public Flux<McpSchemaVO.JSONRPCResponse> handle(String gatewayId, McpSchemaVO.JSONRPCMessage message) {
-        // 校验消息类型：仅处理Request请求
         if (!(message instanceof McpSchemaVO.JSONRPCRequest req)) {
-            return Flux.error(new AppException("MCP-400", "tools/call 只能处理请求消息"));
+            return Flux.error(new AppException(ResponseCode.ILLEGAL_PARAMETER));
         }
 
-        // 查询网关配置，不存在则抛出异常
-        McpGatewayConfigVO config = Optional
-                .ofNullable(gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
-                .orElseThrow(() -> new AppException("MCP-404", "gateway config not found"));
+        // 使用 defer 包装，确保逻辑在订阅时执行
+        return Flux
+                .defer(() -> {
+                    // 1. 同步准备配置（非阻塞）
+                    McpGatewayProtocolConfigVO protocolConfig = Optional
+                            .ofNullable(gatewayRepository.queryMcpGatewayProtocolConfig(gatewayId))
+                            .orElseThrow(() -> new AppException(ResponseCode.DATA_NOT_FOUND));
 
-        // 解析工具调用参数
-        Map<String, Object> arguments = new HashMap<>();
-        if (req.params() instanceof Map<?, ?> map) {
-            map.forEach((k, v) -> arguments.put(String.valueOf(k), v));
-        } else if (req.params() != null) {
-            arguments.put("value", req.params());
-        }
+                    McpSchemaVO.CallToolRequest callToolRequest = McpSchemaVO.convert(req.params(),
+                            new TypeReference<>() {
+                            });
 
-        // 构建工具调用响应结果
-        Map<String, Object> result = new HashMap<>();
-        result.put("gatewayId", gatewayId);
-        result.put("toolId", config.getToolId());
-        result.put("toolName", config.getToolName());
-        result.put("arguments", arguments);
-        result.put("status", "accepted");
-
-        return Flux.just(McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), result));
+                    // 2. 将阻塞的 toolCall 包装进 Mono，并切换到弹性线程池
+                    return Mono
+                            .fromCallable(() -> sessionPort.toolCall(protocolConfig.getHttpConfig(),
+                                    callToolRequest.arguments()))
+                            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()) // 解决阻塞问题的关键
+                            .map(result -> {
+                                // 3. 封装成功响应
+                                Map<String, Object> payload = Map.of("content", new Object[]{Map.of("type", "text",
+                                        "text", String.valueOf(result))}, "isError", false);
+                                return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), payload);
+                            });
+                })
+                .onErrorResume(e -> {
+                    // 4. 统一异常处理（在这里 IOException 已经被自动包装并传递过来了）
+                    log.error("MCP 调用失败, gatewayId: {}", gatewayId, e);
+                    int code = (e instanceof AppException ae) ? Integer.parseInt(ae.getCode()) : -32603;
+                    return Flux.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), code, e.getMessage(), null));
+                });
     }
 }

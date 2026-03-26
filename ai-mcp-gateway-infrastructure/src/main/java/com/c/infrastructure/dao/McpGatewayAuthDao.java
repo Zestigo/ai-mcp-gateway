@@ -41,10 +41,10 @@ public interface McpGatewayAuthDao {
     /**
      * 根据ID查询网关权限
      *
-     * @param id 主键ID
+     * @param gatewayId 网关ID
      * @return 网关权限PO对象
      */
-    McpGatewayAuthPO queryById(Long id);
+    McpGatewayAuthPO queryByGatewayId(String gatewayId);
 
     /**
      * 查询所有网关权限配置
@@ -52,4 +52,5 @@ public interface McpGatewayAuthDao {
      * @return 网关权限PO列表
      */
     List<McpGatewayAuthPO> queryAll();
+
 }

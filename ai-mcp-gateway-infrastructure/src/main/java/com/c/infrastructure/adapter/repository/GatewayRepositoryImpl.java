@@ -2,56 +2,52 @@ package com.c.infrastructure.adapter.repository;
 
 import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpGatewayProtocolConfigVO;
 import com.c.domain.session.model.valobj.gateway.McpGatewayToolConfigVO;
-import com.c.infrastructure.dao.McpGatewayDao;
-import com.c.infrastructure.dao.McpProtocolMappingDao;
-import com.c.infrastructure.dao.McpProtocolRegistryDao;
-import com.c.infrastructure.dao.po.McpGatewayPO;
-import com.c.infrastructure.dao.po.McpProtocolMappingPO;
-import com.c.infrastructure.dao.po.McpProtocolRegistryPO;
+import com.c.infrastructure.dao.*;
+import com.c.infrastructure.dao.po.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * 网关配置仓储的数据库实现
- * 负责从数据库加载网关基础信息、工具注册信息、协议映射信息，并转换为领域值对象
+ * 网关配置仓储实现类
+ * 聚合多表数据，为领域层提供统一的网关配置查询能力
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/26
  */
 @Repository
 @RequiredArgsConstructor
 public class GatewayRepositoryImpl implements GatewayRepository {
 
-    /** 网关基础配置数据访问对象 */
+    /** 网关基础配置DAO */
     private final McpGatewayDao mcpGatewayDao;
 
-    /** 协议注册信息数据访问对象 */
+    /** 协议注册配置DAO */
     private final McpProtocolRegistryDao mcpProtocolRegistryDao;
 
-    /** 协议字段映射数据访问对象 */
+    /** 协议映射配置DAO */
     private final McpProtocolMappingDao mcpProtocolMappingDao;
 
+    /** 网关授权配置DAO */
+    private final McpGatewayAuthDao mcpGatewayAuthDao;
+
     /**
-     * 根据网关ID查询网关完整配置信息
+     * 根据网关ID查询基础网关配置
      *
-     * @param gatewayId 网关唯一标识
-     * @return 网关配置值对象，不存在则返回null
+     * @param gatewayId 网关ID
+     * @return 网关基础配置值对象
      */
     @Override
     public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
-        // 查询网关基础信息
         McpGatewayPO gatewayPO = mcpGatewayDao.queryMcpGatewayByGatewayId(gatewayId);
-        // 查询网关对应的工具注册信息
         McpProtocolRegistryPO registryPO = mcpProtocolRegistryDao.queryMcpProtocolRegistryByGatewayId(gatewayId);
 
-        // 关键数据不存在则直接返回空
         if (registryPO == null || gatewayPO == null) return null;
 
-        // 构建并返回网关配置值对象
         return McpGatewayConfigVO
                 .builder()
                 .gatewayId(gatewayId)
@@ -64,37 +60,66 @@ public class GatewayRepositoryImpl implements GatewayRepository {
     }
 
     /**
-     * 根据网关ID查询工具协议字段映射配置列表
+     * 根据网关ID查询工具配置列表
      *
-     * @param gatewayId 网关唯一标识
-     * @return 工具字段映射配置列表
+     * @param gatewayId 网关ID
+     * @return 工具配置值对象列表
      */
     @Override
     public List<McpGatewayToolConfigVO> queryMcpGatewayToolConfigListByGatewayId(String gatewayId) {
-        // 构建查询参数
         McpProtocolMappingPO reqPO = new McpProtocolMappingPO();
         reqPO.setGatewayId(gatewayId);
 
-        // 查询协议映射配置列表
         List<McpProtocolMappingPO> poList = mcpProtocolMappingDao.queryMcpGatewayToolConfigList(reqPO);
-        List<McpGatewayToolConfigVO> voList = new ArrayList<>();
 
-        // 将持久化对象转换为领域值对象
-        for (McpProtocolMappingPO po : poList) {
-            voList.add(McpGatewayToolConfigVO
-                    .builder()
-                    .gatewayId(po.getGatewayId())
-                    .toolId(po.getToolId())
-                    .mappingType(po.getMappingType())
-                    .parentPath(po.getParentPath())
-                    .fieldName(po.getFieldName())
-                    .mcpPath(po.getMcpPath())
-                    .mcpType(po.getMcpType())
-                    .mcpDescription(po.getMcpDescription())
-                    .isRequired(po.getIsRequired())
-                    .sortOrder(po.getSortOrder())
-                    .build());
-        }
-        return voList;
+        return poList
+                .stream()
+                .map(po -> McpGatewayToolConfigVO
+                        .builder()
+                        .gatewayId(po.getGatewayId())
+                        .toolId(po.getToolId())
+                        .mappingType(po.getMappingType())
+                        .parentPath(po.getParentPath())
+                        .fieldName(po.getFieldName())
+                        .mcpPath(po.getMcpPath())
+                        .mcpType(po.getMcpType())
+                        .mcpDescription(po.getMcpDescription())
+                        .isRequired(po.getIsRequired())
+                        .sortOrder(po.getSortOrder())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 查询指定网关的协议配置信息
+     * 聚合授权信息与协议注册信息，构建HTTP调用配置
+     *
+     * @param gatewayId 网关ID
+     * @return 网关协议配置值对象
+     */
+    @Override
+    public McpGatewayProtocolConfigVO queryMcpGatewayProtocolConfig(String gatewayId) {
+        // 查询网关授权配置
+        McpGatewayAuthPO authPO = mcpGatewayAuthDao.queryByGatewayId(gatewayId);
+        if (authPO == null) return null;
+
+        // 查询协议注册配置（包含HTTP请求核心参数）
+        McpProtocolRegistryPO registryPO = mcpProtocolRegistryDao.queryMcpProtocolRegistryByGatewayId(gatewayId);
+        if (registryPO == null) return null;
+
+        // 构建HTTP请求配置
+        McpGatewayProtocolConfigVO.HTTPConfig httpConfig = McpGatewayProtocolConfigVO.HTTPConfig
+                .builder()
+                .httpUrl(registryPO.getHttpUrl())
+                .httpMethod(registryPO.getHttpMethod())
+                .httpHeaders(registryPO.getHttpHeaders())
+                .timeout(registryPO.getTimeout() != null ? registryPO.getTimeout() : 3000)
+                .build();
+
+        return McpGatewayProtocolConfigVO
+                .builder()
+                .gatewayId(authPO.getGatewayId())
+                .httpConfig(httpConfig)
+                .build();
     }
 }

@@ -1,4 +1,4 @@
-package com.c.infrastructure.adapter;
+package com.c.infrastructure.adapter.port;
 
 import com.c.domain.session.adapter.repository.SessionSsePort;
 import org.springframework.http.codec.ServerSentEvent;

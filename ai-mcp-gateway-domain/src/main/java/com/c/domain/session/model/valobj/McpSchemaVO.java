@@ -10,46 +10,59 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * MCP 协议 JSON-RPC 消息模型与工具类
- * 统一封装：消息序列化、反序列化、请求/响应结构、MCP 协议定义
- * 纯值对象 + 工具类，无状态
- *
- * @author cyh
- * @date 2026/03/25
+ * MCP协议JSON-RPC消息值对象
+ * 提供消息序列化、反序列化、协议结构定义与工具方法
+ * 无状态工具类，不可实例化
  */
 @Slf4j
 public final class McpSchemaVO {
 
-    /** MCP 最新协议版本 */
+    /** MCP协议最新版本号 */
     public static final String LATEST_PROTOCOL_VERSION = "2024-11-05";
 
-    /** JSON-RPC 固定版本 */
+    /** JSON-RPC协议固定版本 */
     public static final String JSONRPC_VERSION = "2.0";
 
-    /** 私有构造：禁止实例化 */
-    private McpSchemaVO() {
+    /** JSON序列化工具实例 */
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** MCP请求标记接口，限定请求类型 */
+    public sealed interface Request permits InitializeRequest, CallToolRequest {
     }
 
+    /** Map类型引用，解决泛型擦除问题 */
+    private static final TypeReference<HashMap<String, Object>> MAP_TYPE_REF = new TypeReference<>() {
+    };
+
     // =========================
-    // JSON-RPC 方法名 & 错误码
+    // JSON-RPC 方法常量
     // =========================
 
-    /** MCP 支持的 JSON-RPC 方法常量 */
+    /** JSON-RPC调用方法名常量 */
     public static final class Methods {
-        /** 初始化握手 */
+        /** 初始化方法 */
         public static final String INITIALIZE = "initialize";
-        /** 获取工具列表 */
+        /** 获取工具列表方法 */
         public static final String LIST_TOOLS = "tools/list";
-        /** 调用工具 */
+        /** 调用工具方法 */
         public static final String CALL_TOOL = "tools/call";
     }
 
-    /** JSON-RPC 标准错误码 */
+    // =========================
+    // JSON-RPC 错误码常量
+    // =========================
+
+    /** JSON-RPC标准错误码 */
     public static final class ErrorCodes {
+        /** JSON解析错误 */
         public static final int PARSE_ERROR = -32700;
+        /** 请求格式无效 */
         public static final int INVALID_REQUEST = -32600;
+        /** 方法不存在 */
         public static final int METHOD_NOT_FOUND = -32601;
+        /** 参数无效 */
         public static final int INVALID_PARAMS = -32602;
+        /** 服务内部错误 */
         public static final int INTERNAL_ERROR = -32603;
     }
 
@@ -57,23 +70,27 @@ public final class McpSchemaVO {
     // JSON 序列化配置
     // =========================
 
-    /** 全局单例 ObjectMapper：宽松解析、忽略未知字段、不序列化 null */
+    /** 全局ObjectMapper，配置宽松解析、忽略未知字段、不序列化空值 */
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
             .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true)
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-    /** Map 类型引用，避免泛型擦除 */
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+    /** Map类型引用 */
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<Map<String, Object>>() {
     };
 
     // =========================
-    // 消息序列化/反序列化工具
+    // 序列化工具方法
     // =========================
 
     /**
-     * 反序列化 JSON 字符串为 JSON-RPC 消息（自动识别请求/通知/响应）
+     * 将JSON字符串反序列化为JSON-RPC消息对象
+     *
+     * @param json JSON字符串
+     * @return JSON-RPC消息实例
+     * @throws IOException 解析异常
      */
     public static JSONRPCMessage deserialize(String json) throws IOException {
         Map<String, Object> map = MAPPER.readValue(json, MAP_TYPE);
@@ -83,17 +100,17 @@ public final class McpSchemaVO {
         boolean hasResult = map.containsKey("result");
         boolean hasError = map.containsKey("error");
 
-        // 响应：包含 id + result/error
+        // 响应消息：包含id + result/error
         if (hasId && (hasResult || hasError)) {
             return MAPPER.readValue(json, JSONRPCResponse.class);
         }
 
-        // 请求：包含 method + id
+        // 请求消息：包含method + id
         if (hasMethod && hasId) {
             return MAPPER.readValue(json, JSONRPCRequest.class);
         }
 
-        // 通知：仅 method，无 id
+        // 通知消息：仅包含method，无id
         if (hasMethod) {
             return MAPPER.readValue(json, JSONRPCNotification.class);
         }
@@ -102,7 +119,10 @@ public final class McpSchemaVO {
     }
 
     /**
-     * 对象序列化为 JSON 字符串
+     * 对象序列化为JSON字符串
+     *
+     * @param obj 待序列化对象
+     * @return JSON字符串
      */
     public static String toJson(Object obj) {
         try {
@@ -114,28 +134,37 @@ public final class McpSchemaVO {
 
     /**
      * 对象类型安全转换
+     *
+     * @param data 源对象
+     * @param type 目标类型引用
+     * @return 转换后对象
      */
     public static <T> T convert(Object data, TypeReference<T> type) {
         return data == null ? null : MAPPER.convertValue(data, type);
     }
 
     /**
-     * 快速构建错误响应
+     * 构建错误响应对象
+     *
+     * @param id      请求ID
+     * @param code    错误码
+     * @param message 错误信息
+     * @return 错误响应
      */
     public static JSONRPCResponse ofError(Object id, int code, String message) {
         return JSONRPCResponse.ofError(id, code, message, null);
     }
 
     // =========================
-    // JSON-RPC 消息顶层接口
+    // JSON-RPC 消息顶层结构
     // =========================
 
-    /** JSON-RPC 消息顶层标记接口：请求/通知/响应 统一父类型 */
+    /** JSON-RPC消息顶层接口 */
     public interface JSONRPCMessage {
         String jsonrpc();
 
         /**
-         * 统一模式匹配：处理不同消息类型
+         * 消息类型匹配处理
          */
         default <T> T fold(java.util.function.Function<JSONRPCRequest, T> onRequest,
                            java.util.function.Function<JSONRPCNotification, T> onNotification,
@@ -151,21 +180,17 @@ public final class McpSchemaVO {
         }
     }
 
-    // =========================
-    // JSON-RPC 基础消息结构
-    // =========================
-
-    /** JSON-RPC 请求（带 ID，需要响应） */
+    /** JSON-RPC请求对象（带ID，需响应） */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JSONRPCRequest(String jsonrpc, String method, Object id, Object params) implements JSONRPCMessage {
     }
 
-    /** JSON-RPC 通知（无 ID，无需响应） */
+    /** JSON-RPC通知对象（无ID，无需响应） */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JSONRPCNotification(String jsonrpc, String method, Object params) implements JSONRPCMessage {
     }
 
-    /** JSON-RPC 响应（成功/错误） */
+    /** JSON-RPC响应对象 */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JSONRPCResponse(String jsonrpc, Object id, Object result,
                                   JSONRPCError error) implements JSONRPCMessage {
@@ -180,53 +205,50 @@ public final class McpSchemaVO {
             return new JSONRPCResponse(JSONRPC_VERSION, id, null, new JSONRPCError(code, message, data));
         }
 
-        /** JSON-RPC 错误体 */
+        /** JSON-RPC错误体 */
         @JsonInclude(JsonInclude.Include.NON_ABSENT)
         public record JSONRPCError(int code, String message, Object data) {
         }
     }
 
     // =========================
-    // MCP 核心业务模型
+    // MCP 基础业务模型
     // =========================
 
-    /** 实现方信息：客户端/服务端名称+版本 */
+    /** 实现方信息（名称+版本） */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Implementation(@JsonProperty("name") String name, @JsonProperty("version") String version) {
+    public record Implementation(String name, String version) {
     }
 
-    /** JSON Schema 结构：用于描述工具入参 */
+    /** JSON Schema结构，用于描述入参格式 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record JsonSchema(@JsonProperty("type") String type,
-                             @JsonProperty("properties") Map<String, Object> properties,
-                             @JsonProperty("required") List<String> required,
-                             @JsonProperty("additionalProperties") Boolean additionalProperties,
-                             @JsonProperty("$defs") Map<String, Object> defs,
-                             @JsonProperty("definitions") Map<String, Object> definitions) {
+    public record JsonSchema(String type, Map<String, Object> properties, List<String> required,
+                             Boolean additionalProperties, @JsonProperty("$defs") Map<String, Object> defs,
+                             Map<String, Object> definitions) {
     }
 
-    /** MCP 工具定义 */
+    /** MCP工具定义 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Tool(@JsonProperty("name") String name, @JsonProperty("description") String description,
-                       @JsonProperty("inputSchema") JsonSchema inputSchema) {
+    public record Tool(String name, String description, JsonSchema inputSchema) {
 
-        /** 字符串 schema 构造 */
+        /** 通过字符串schema构造工具对象 */
         public Tool(String name, String description, String schema) {
             this(name, description, parseSchema(schema));
         }
     }
 
-    /** 工具列表响应结果 */
+    /** 工具列表查询结果 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ListToolsResult(@JsonProperty("tools") List<Tool> tools,
-                                  @JsonProperty("nextCursor") String nextCursor) {
+    public record ListToolsResult(List<Tool> tools, String nextCursor) {
     }
 
-    /** 解析 JSON 字符串为 JsonSchema */
+    /**
+     * 解析JSON字符串为JsonSchema对象
+     */
     private static JsonSchema parseSchema(String schema) {
         try {
             JsonSchema s = MAPPER.readValue(schema, JsonSchema.class);
@@ -240,28 +262,25 @@ public final class McpSchemaVO {
     }
 
     // =========================
-    // MCP 初始化握手
+    // MCP 初始化模型
     // =========================
 
     /** 初始化请求 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record InitializeRequest(@JsonProperty("protocolVersion") String protocolVersion,
-                                    @JsonProperty("capabilities") ClientCapabilities capabilities,
-                                    @JsonProperty("clientInfo") Implementation clientInfo) {
+    public record InitializeRequest(String protocolVersion, ClientCapabilities capabilities,
+                                    Implementation clientInfo) implements Request {
     }
 
     /** 初始化响应 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record InitializeResult(@JsonProperty("protocolVersion") String protocolVersion,
-                                   @JsonProperty("capabilities") ServerCapabilities capabilities,
-                                   @JsonProperty("serverInfo") Implementation serverInfo,
-                                   @JsonProperty("instructions") String instructions) {
+    public record InitializeResult(String protocolVersion, ServerCapabilities capabilities, Implementation serverInfo,
+                                   String instructions) {
     }
 
     // =========================
-    // MCP 能力声明
+    // MCP 能力定义
     // =========================
 
     /** 客户端能力 */
@@ -279,7 +298,6 @@ public final class McpSchemaVO {
     public record ServerCapabilities(CompletionCapabilities completions, Map<String, Object> experimental,
                                      LoggingCapabilities logging, PromptCapabilities prompts,
                                      ResourceCapabilities resources, ToolCapabilities tools) {
-
         public record CompletionCapabilities() {
         }
 
@@ -294,5 +312,29 @@ public final class McpSchemaVO {
 
         public record ToolCapabilities(Boolean listChanged) {
         }
+    }
+
+    /** 工具调用请求 */
+    @JsonInclude(JsonInclude.Include.NON_ABSENT)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CallToolRequest(String name, Map<String, Object> arguments) implements Request {
+
+        /** 通过JSON字符串参数构造请求 */
+        public CallToolRequest(String name, String jsonArguments) {
+            this(name, parseJsonArguments(jsonArguments));
+        }
+
+        /** 解析JSON参数为Map */
+        private static Map<String, Object> parseJsonArguments(String jsonArguments) {
+            try {
+                return objectMapper.readValue(jsonArguments, MAP_TYPE_REF);
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Invalid arguments: " + jsonArguments, e);
+            }
+        }
+    }
+
+    /** 私有构造，禁止实例化 */
+    private McpSchemaVO() {
     }
 }

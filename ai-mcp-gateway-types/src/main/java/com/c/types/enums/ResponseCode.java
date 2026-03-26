@@ -29,8 +29,9 @@ public enum ResponseCode {
     /** 请求的方法不存在或未注册 */
     METHOD_NOT_FOUND("0003", "未找到方法"),
     /** 业务处理异常 */
-    BUSINESS_ERROR("0004", "业务异常");
-
+    BUSINESS_ERROR("0004", "业务异常"),
+    /** 对应网关配置不存在的情况 */
+    DATA_NOT_FOUND("0005", "数据不存在或配置未找到");
     /** 响应状态码 */
     private final String code;
     /** 响应码描述信息 */
