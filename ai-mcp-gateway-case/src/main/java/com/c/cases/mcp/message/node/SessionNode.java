@@ -1,9 +1,9 @@
-package com.c.cases.mcp.session.node;
+package com.c.cases.mcp.message.node;
 
 import com.c.cases.mcp.api.model.McpSessionRequest;
 import com.c.cases.mcp.framework.tree.StrategyHandler;
-import com.c.cases.mcp.session.AbstractMcpSessionSupport;
-import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
+import com.c.cases.mcp.message.AbstractMcpSessionSupport;
+import com.c.cases.mcp.message.factory.DefaultMcpMessageFactory;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -19,10 +19,10 @@ import reactor.core.publisher.Sinks;
  * @date 2026/03/24
  */
 @Slf4j
-@Service("mcpSessionSessionNode")
+@Service("mcpMessageSessionNode")
 public class SessionNode extends AbstractMcpSessionSupport {
 
-    @Resource(name = "mcpSessionEndNode")
+    @Resource(name = "mcpMessageEndNode")
     private EndNode endNode;
 
     /**
@@ -33,7 +33,7 @@ public class SessionNode extends AbstractMcpSessionSupport {
      * @return SSE事件流
      */
     @Override
-    protected Flux<ServerSentEvent<String>> doApply(String request, DefaultMcpSessionFactory.DynamicContext context) {
+    protected Flux<ServerSentEvent<String>> doApply(String request, DefaultMcpMessageFactory.DynamicContext context) {
         // 从上下文获取会话请求对象
         McpSessionRequest sessionRequest = context.getSessionRequest();
         // 获取超时时间：请求对象为空则使用默认值
@@ -86,7 +86,7 @@ public class SessionNode extends AbstractMcpSessionSupport {
      * @return 最终节点处理器
      */
     @Override
-    public StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(String request, DefaultMcpSessionFactory.DynamicContext context) {
+    public StrategyHandler<String, DefaultMcpMessageFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(String request, DefaultMcpMessageFactory.DynamicContext context) {
         return endNode;
     }
 }

@@ -1,16 +1,15 @@
-package com.c.cases.mcp.session.factory;
+package com.c.cases.mcp.message.factory;
 
 import com.c.cases.mcp.api.model.McpSessionRequest;
 import com.c.cases.mcp.framework.tree.StrategyHandler;
-import com.c.cases.mcp.session.node.RootNode;
+import com.c.cases.mcp.message.node.RootNode;
 import com.c.domain.session.model.entity.McpSession;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
+import jakarta.annotation.Resource;
 import lombok.Data;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-
-import jakarta.annotation.Resource;
 import reactor.core.publisher.Sinks;
 
 /**
@@ -21,9 +20,9 @@ import reactor.core.publisher.Sinks;
  * @date 2026/03/24
  */
 @Component
-public class DefaultMcpSessionFactory {
+public class DefaultMcpMessageFactory {
 
-    @Resource(name = "mcpSessionRootNode")
+    @Resource(name = "mcpMessageRootNode")
     private RootNode rootNode;
 
     /**

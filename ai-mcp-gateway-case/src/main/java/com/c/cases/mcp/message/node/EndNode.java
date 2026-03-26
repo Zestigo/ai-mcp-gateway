@@ -1,8 +1,8 @@
-package com.c.cases.mcp.session.node;
+package com.c.cases.mcp.message.node;
 
 import com.c.cases.mcp.framework.tree.StrategyHandler;
-import com.c.cases.mcp.session.AbstractMcpSessionSupport;
-import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
+import com.c.cases.mcp.message.AbstractMcpSessionSupport;
+import com.c.cases.mcp.message.factory.DefaultMcpMessageFactory;
 import com.c.domain.session.model.entity.McpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -20,7 +20,7 @@ import java.time.Duration;
  * @date 2026/03/24
  */
 @Slf4j
-@Service("mcpSessionEndNode")
+@Service("mcpMessageEndNode")
 public class EndNode extends AbstractMcpSessionSupport {
 
     /**
@@ -32,7 +32,7 @@ public class EndNode extends AbstractMcpSessionSupport {
      */
     @Override
     protected Flux<ServerSentEvent<String>> doApply(String requestParameter,
-                                                    DefaultMcpSessionFactory.DynamicContext context) {
+                                                    DefaultMcpMessageFactory.DynamicContext context) {
         // 从上下文获取会话对象
         McpSession session = context.getSession();
         // 校验会话与SSE通道完整性
@@ -88,8 +88,8 @@ public class EndNode extends AbstractMcpSessionSupport {
      * @return 默认兜底处理器
      */
     @Override
-    public StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(
-            String requestParameter, DefaultMcpSessionFactory.DynamicContext context) {
+    public StrategyHandler<String, DefaultMcpMessageFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(
+            String requestParameter, DefaultMcpMessageFactory.DynamicContext context) {
         return defaultStrategyHandler;
     }
 }

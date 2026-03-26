@@ -1,9 +1,8 @@
-package com.c.cases.mcp.session.node;
+package com.c.cases.mcp.message.node;
 
 import com.c.cases.mcp.framework.tree.StrategyHandler;
-import com.c.cases.mcp.session.AbstractMcpSessionSupport;
-import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
-import jakarta.annotation.Resource;
+import com.c.cases.mcp.message.AbstractMcpSessionSupport;
+import com.c.cases.mcp.message.factory.DefaultMcpMessageFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -17,10 +16,10 @@ import reactor.core.publisher.Flux;
  * @date 2026/03/24
  */
 @Slf4j
-@Service("mcpSessionRootNode")
+@Service("mcpMessageRootNode")
 public class RootNode extends AbstractMcpSessionSupport {
 
-    @Resource(name = "mcpSessionVerifyNode")
+    @jakarta.annotation.Resource(name = "mcpMessageVerifyNode")
     private VerifyNode verifyNode;
 
     /**
@@ -32,7 +31,7 @@ public class RootNode extends AbstractMcpSessionSupport {
      * @throws Exception 执行异常
      */
     @Override
-    protected Flux<ServerSentEvent<String>> doApply(String request, DefaultMcpSessionFactory.DynamicContext context) throws Exception {
+    protected Flux<ServerSentEvent<String>> doApply(String request, DefaultMcpMessageFactory.DynamicContext context) throws Exception {
         log.info("RootNode 处理请求 | gatewayId={}", request);
         // 路由到下一个执行节点
         return router(request, context);
@@ -46,8 +45,8 @@ public class RootNode extends AbstractMcpSessionSupport {
      * @return 校验节点处理器
      */
     @Override
-    public StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(
-            String request, DefaultMcpSessionFactory.DynamicContext context) {
+    public StrategyHandler<String, DefaultMcpMessageFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(
+            String request, DefaultMcpMessageFactory.DynamicContext context) {
         return verifyNode;
     }
 }

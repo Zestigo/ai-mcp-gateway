@@ -1,8 +1,8 @@
 package com.c.test.infrastructure.gateway;
 
 import com.alibaba.fastjson.JSON;
-import com.c.infrastructure.dao.McpProtocolRegistryDao;
-import com.c.infrastructure.dao.po.McpProtocolRegistryPO;
+import com.c.infrastructure.dao.McpProtocolHttpDao;
+import com.c.infrastructure.dao.po.McpProtocolHttpPO;
 import com.c.infrastructure.gateway.GenericHttpGateway;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class GenericHttpGatewayTest {
 
     /** MCP协议注册数据访问对象 */
     @javax.annotation.Resource
-    private McpProtocolRegistryDao mcpProtocolRegistryDao;
+    private McpProtocolHttpDao mcpProtocolHttpDao;
 
     /**
      * 测试POST请求调用
@@ -47,7 +47,7 @@ public class GenericHttpGatewayTest {
     @Test
     public void test_post() throws Exception {
         // 从数据库查询MCP协议注册配置信息
-        McpProtocolRegistryPO mcpProtocolRegistryPO = mcpProtocolRegistryDao.queryById(1L);
+        McpProtocolHttpPO mcpProtocolRegistryPO = mcpProtocolHttpDao.queryById(1L);
 
         // 获取请求地址、请求头、超时时间配置
         String httpUrl = mcpProtocolRegistryPO.getHttpUrl();

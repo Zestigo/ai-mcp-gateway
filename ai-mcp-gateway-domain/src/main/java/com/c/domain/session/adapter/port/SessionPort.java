@@ -1,6 +1,6 @@
 package com.c.domain.session.adapter.port;
 
-import com.c.domain.session.model.valobj.gateway.McpGatewayProtocolConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 
 import java.io.IOException;
 
@@ -21,6 +21,6 @@ public interface SessionPort {
      * @return 调用返回结果
      * @throws IOException IO调用异常
      */
-    Object toolCall(McpGatewayProtocolConfigVO.HTTPConfig httpConfig, Object params) throws IOException;
+    Object toolCall(McpToolProtocolConfigVO.HTTPConfig httpConfig, Object params) throws IOException;
 
 }

@@ -3,7 +3,7 @@ package com.c.domain.session.service.message.handler.impl;
 import com.c.domain.session.adapter.port.SessionPort;
 import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
-import com.c.domain.session.model.valobj.gateway.McpGatewayProtocolConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
@@ -13,13 +13,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * MCP工具调用请求处理器
- * 处理tools/call类型请求，完成协议解析、配置加载、接口调用与响应封装
+ * 处理tools/call类型请求，完成参数解析、协议配置加载、远程接口调用与响应封装
  *
  * @author cyh
  * @date 2026/03/26
@@ -32,51 +33,78 @@ public class ToolsCallHandler implements IRequestHandler {
     /** 网关配置仓储 */
     private final GatewayRepository gatewayRepository;
 
-    /** 会话服务端口 */
+    /** 会话服务端口，执行实际接口调用 */
     private final SessionPort sessionPort;
 
     /**
      * 处理MCP工具调用请求
      *
-     * @param gatewayId 网关ID
-     * @param message   JSON-RPC消息
-     * @return 响应结果流
+     * @param gatewayId 网关唯一标识
+     * @param message   JSON-RPC请求消息
+     * @return 工具调用响应结果流
      */
     @Override
     public Flux<McpSchemaVO.JSONRPCResponse> handle(String gatewayId, McpSchemaVO.JSONRPCMessage message) {
+        // 校验消息类型是否为合法请求
         if (!(message instanceof McpSchemaVO.JSONRPCRequest req)) {
             return Flux.error(new AppException(ResponseCode.ILLEGAL_PARAMETER));
         }
 
-        // 使用 defer 包装，确保逻辑在订阅时执行
-        return Flux
-                .defer(() -> {
-                    // 1. 同步准备配置（非阻塞）
-                    McpGatewayProtocolConfigVO protocolConfig = Optional
-                            .ofNullable(gatewayRepository.queryMcpGatewayProtocolConfig(gatewayId))
-                            .orElseThrow(() -> new AppException(ResponseCode.DATA_NOT_FOUND));
+        return Mono.fromCallable(() -> {
+                       // 解析请求参数，获取工具名称与调用参数
+                       McpSchemaVO.CallToolRequest callToolRequest = McpSchemaVO.convert(req.params(),
+                               new TypeReference<>() {
+                               });
 
-                    McpSchemaVO.CallToolRequest callToolRequest = McpSchemaVO.convert(req.params(),
-                            new TypeReference<>() {
-                            });
+                       // 校验工具名称非空
+                       if (callToolRequest == null || callToolRequest.name() == null) {
+                           throw new AppException(ResponseCode.ILLEGAL_PARAMETER, "工具名称不能为空");
+                       }
 
-                    // 2. 将阻塞的 toolCall 包装进 Mono，并切换到弹性线程池
-                    return Mono
-                            .fromCallable(() -> sessionPort.toolCall(protocolConfig.getHttpConfig(),
-                                    callToolRequest.arguments()))
-                            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()) // 解决阻塞问题的关键
-                            .map(result -> {
-                                // 3. 封装成功响应
-                                Map<String, Object> payload = Map.of("content", new Object[]{Map.of("type", "text",
-                                        "text", String.valueOf(result))}, "isError", false);
-                                return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), payload);
-                            });
-                })
-                .onErrorResume(e -> {
-                    // 4. 统一异常处理（在这里 IOException 已经被自动包装并传递过来了）
-                    log.error("MCP 调用失败, gatewayId: {}", gatewayId, e);
-                    int code = (e instanceof AppException ae) ? Integer.parseInt(ae.getCode()) : -32603;
-                    return Flux.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), code, e.getMessage(), null));
-                });
+                       // 根据网关ID与工具名称查询协议配置
+                       McpToolProtocolConfigVO protocolConfig =
+                               gatewayRepository.queryMcpGatewayProtocolConfig(gatewayId, callToolRequest.name());
+
+                       // 校验协议配置是否存在
+                       if (protocolConfig == null || protocolConfig.getHttpConfig() == null) {
+                           throw new AppException(ResponseCode.DATA_NOT_FOUND, "未找到工具协议配置: " + callToolRequest.name());
+                       }
+
+                       log.info("MCP_CALL_START | gatewayId={} | toolName={}", gatewayId, callToolRequest.name());
+
+                       // 调用会话端口执行远程接口请求
+                       return sessionPort.toolCall(protocolConfig.getHttpConfig(), callToolRequest.arguments());
+                   })
+                   // 数据库与网络IO操作切换至弹性线程池，避免阻塞反应器线程
+                   .subscribeOn(Schedulers.boundedElastic())
+                   .map(result -> {
+                       // 按照MCP协议规范封装成功响应内容
+                       Map<String, Object> content = Map.of("type", "text", "text", String.valueOf(result));
+                       Map<String, Object> payload = Map.of("content", List.of(content), "isError", false);
+                       return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), payload);
+                   })
+                   .onErrorResume(e -> {
+                       // 统一异常处理，记录日志并返回标准错误响应
+                       log.error("MCP_CALL_FAILED | gatewayId={} | error={}", gatewayId, e.getMessage(), e);
+                       int errorCode = (e instanceof AppException ae) ? safeParseInt(ae.getCode(), -32603) : -32603;
+                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), errorCode, e.getMessage(), null));
+                   })
+                   // 转换为Flux类型以适配接口返回值
+                   .flux();
+    }
+
+    /**
+     * 安全解析字符串类型错误码
+     *
+     * @param code        错误码字符串
+     * @param defaultCode 默认错误码
+     * @return 解析后的整型错误码
+     */
+    private int safeParseInt(String code, int defaultCode) {
+        try {
+            return Integer.parseInt(code);
+        } catch (Exception e) {
+            return defaultCode;
+        }
     }
 }

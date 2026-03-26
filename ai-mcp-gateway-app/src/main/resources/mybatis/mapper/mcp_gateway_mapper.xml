@@ -9,26 +9,25 @@
         <result property="gatewayId" column="gateway_id"/>
         <result property="gatewayName" column="gateway_name"/>
         <result property="gatewayDescription" column="gateway_description"/>
+        <result property="gatewayVersion" column="gateway_version"/>
         <result property="status" column="status"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
     <sql id="all_columns">
-        id, gateway_id, gateway_name, gateway_description, status, create_time, update_time
+        id, gateway_id, gateway_name, gateway_description, gateway_version, status, create_time, update_time
     </sql>
 
     <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_gateway (
-            gateway_id, gateway_name, gateway_description, status, create_time, update_time
-        )
-        VALUES (
-                   #{gatewayId}, #{gatewayName}, #{gatewayDescription}, #{status}, NOW(), NOW()
-               )
+        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_description, gateway_version, status, create_time, update_time)
+        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDescription}, #{gatewayVersion}, #{status}, NOW(), NOW())
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE FROM mcp_gateway WHERE id = #{value}
+        DELETE
+        FROM mcp_gateway
+        WHERE id = #{id}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
@@ -37,6 +36,7 @@
             <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
             <if test="gatewayName != null">gateway_name = #{gatewayName},</if>
             <if test="gatewayDescription != null">gateway_description = #{gatewayDescription},</if>
+            <if test="gatewayVersion != null">gateway_version = #{gatewayVersion},</if>
             <if test="status != null">status = #{status},</if>
             update_time = NOW()
         </set>
@@ -44,20 +44,24 @@
     </update>
 
     <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/>
+        SELECT
+        <include refid="all_columns"/>
         FROM mcp_gateway
-        WHERE id = #{value}
+        WHERE id = #{id}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/>
+        SELECT
+        <include refid="all_columns"/>
         FROM mcp_gateway
     </select>
 
     <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/>
+        SELECT
+        <include refid="all_columns"/>
         FROM mcp_gateway
         WHERE gateway_id = #{gatewayId}
+        AND status = 1
     </select>
 
 </mapper>

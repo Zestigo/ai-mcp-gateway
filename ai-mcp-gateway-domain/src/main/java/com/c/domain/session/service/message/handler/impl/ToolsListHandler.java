@@ -2,8 +2,8 @@ package com.c.domain.session.service.message.handler.impl;
 
 import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
-import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
-import com.c.domain.session.model.valobj.gateway.McpGatewayToolConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
 import com.c.types.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -17,192 +17,189 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * MCP 协议 tools/list 请求处理器实现类
- * 核心职责：接收 MCP 工具列表查询请求，基于网关配置数据动态构建符合 MCP 协议规范的工具集合
- * 最终封装为 JSON-RPC 标准响应返回，支持嵌套结构的工具入参 Schema 生成
+ * MCP工具列表查询处理器
+ * 处理tools/list协议请求，将工具配置转换为标准JSON Schema结构
+ * 为AI客户端提供标准化的工具能力发现服务
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/26
  */
 @Slf4j
 @Service("toolsListHandler")
 @RequiredArgsConstructor
 public class ToolsListHandler implements IRequestHandler {
 
-    /** 网关配置仓储层，用于查询网关基础配置与工具字段配置 */
+    /** 网关配置仓储 */
     private final GatewayRepository gatewayRepository;
 
     /**
-     * 处理 MCP 工具列表查询请求入口方法
-     * 校验请求消息类型，异步执行工具列表构建逻辑，统一异常处理
+     * 处理MCP工具列表查询请求
      *
-     * @param gatewayId 网关唯一标识，用于定位对应网关配置
-     * @param message   MCP 协议请求消息体
-     * @return 封装完成的 JSON-RPC 响应流
+     * @param gatewayId 网关唯一标识
+     * @param message   JSON-RPC请求消息
+     * @return 工具列表响应流
      */
     @Override
     public Flux<McpSchemaVO.JSONRPCResponse> handle(String gatewayId, McpSchemaVO.JSONRPCMessage message) {
-        // 校验请求消息类型：仅支持 JSON-RPC 请求消息，拒绝非请求类型消息
+        // 校验消息类型是否为合法请求
         if (!(message instanceof McpSchemaVO.JSONRPCRequest req)) {
-            return Flux.error(new AppException("MCP-400", "Only request messages are supported"));
+            return Flux.error(new AppException("MCP-400", "Only JSON-RPC Request is supported"));
         }
 
-        // 异步执行阻塞操作，避免阻塞反应式流，使用弹性线程池隔离阻塞任务
-        return Mono
-                .fromCallable(() -> executeBuild(gatewayId, req))
-                .subscribeOn(Schedulers.boundedElastic())
-                .flatMapMany(Flux::just)
-                // 全局异常处理：记录错误日志，封装统一的业务异常返回
-                .onErrorResume(e -> {
-                    log.error("Failed to build tools list for gateway: {}", gatewayId, e);
-                    return Flux.error(e instanceof AppException ? e : new AppException("MCP-500",
-                            "Internal Server " + "Error"));
-                });
+        return Mono.fromCallable(() -> {
+                       // 查询网关下所有工具配置信息
+                       List<McpToolConfigVO> toolConfigs =
+                               gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+
+                       // 无工具数据时返回空列表
+                       if (toolConfigs == null || toolConfigs.isEmpty()) {
+                           log.warn("MCP_TOOLS_EMPTY | gatewayId={}", gatewayId);
+                           return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), Map.of("tools",
+                                   Collections.emptyList()));
+                       }
+
+                       // 将业务配置转换为MCP协议标准工具对象
+                       List<McpSchemaVO.Tool> mcpTools = toolConfigs
+                               .stream()
+                               .map(config -> {
+                                   // 获取工具字段映射规则
+                                   List<McpToolProtocolConfigVO.ProtocolMapping> mappings = config
+                                           .getMcpToolProtocolConfigVO()
+                                           .getRequestProtocolMappings();
+                                   // 递归构建JSON Schema结构
+                                   McpSchemaVO.JsonSchema inputSchema = buildToolSchema(mappings);
+                                   return new McpSchemaVO.Tool(config.getToolName(), config.getToolDescription(),
+                                           inputSchema);
+                               })
+                               .toList();
+
+                       log.info("MCP_TOOLS_LIST_LOADED | gatewayId={} | count={}", gatewayId, mcpTools.size());
+                       return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), Map.of("tools", mcpTools));
+                   })
+                   // 数据库阻塞操作切换至弹性线程池
+                   .subscribeOn(Schedulers.boundedElastic())
+                   // 统一异常处理
+                   .onErrorResume(e -> {
+                       log.error("MCP_TOOLS_LIST_ERROR | gatewayId={}", gatewayId, e);
+                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), -32603, e.getMessage(), null));
+                   })
+                   .flux();
     }
 
     /**
-     * 执行工具列表构建核心逻辑
-     * 查询网关配置与工具字段配置，调用构建方法生成标准 MCP 工具列表，封装成功响应
+     * 构建工具JSON Schema结构
      *
-     * @param gatewayId 网关唯一标识
-     * @param req       JSON-RPC 请求对象，包含请求ID等核心参数
-     * @return 封装工具列表数据的 JSON-RPC 成功响应
+     * @param mappings 协议字段映射列表
+     * @return 标准JSON Schema对象
      */
-    private McpSchemaVO.JSONRPCResponse executeBuild(String gatewayId, McpSchemaVO.JSONRPCRequest req) {
-        // 查询网关基础配置，配置不存在则抛出 404 异常
-        McpGatewayConfigVO gatewayConfig = Optional
-                .ofNullable(gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
-                .orElseThrow(() -> new AppException("MCP-404", "Gateway config not found: " + gatewayId));
-
-        // 查询当前网关下所有工具字段映射配置
-        List<McpGatewayToolConfigVO> allConfigs = gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
-
-        // 基于网关配置和字段配置，构建 MCP 协议标准工具列表
-        List<McpSchemaVO.Tool> tools = buildMcpTools(gatewayConfig, allConfigs);
-        // 封装成功响应，携带请求ID和工具列表数据
-        return McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), Map.of("tools", tools));
-    }
-
-    /**
-     * 构建 MCP 协议标准工具集合
-     * 对工具配置按工具ID分组，递归构建嵌套字段结构，生成符合规范的 JSON Schema
-     *
-     * @param gatewayConfig 网关基础配置，包含工具名称、描述等信息
-     * @param allConfigs    工具字段映射配置列表，包含字段类型、层级、是否必填等配置
-     * @return 符合 MCP 协议规范的标准工具列表
-     */
-    private List<McpSchemaVO.Tool> buildMcpTools(McpGatewayConfigVO gatewayConfig,
-                                                 List<McpGatewayToolConfigVO> allConfigs) {
-        // 工具配置为空时，直接返回空列表
-        if (allConfigs == null || allConfigs.isEmpty()) {
-            return Collections.emptyList();
+    private McpSchemaVO.JsonSchema buildToolSchema(List<McpToolProtocolConfigVO.ProtocolMapping> mappings) {
+        if (mappings == null || mappings.isEmpty()) {
+            return new McpSchemaVO.JsonSchema("object", new HashMap<>(), null, false, null, null);
         }
 
-        // 按工具ID对字段配置分组，实现一个工具对应多个字段的映射关系
-        Map<Long, List<McpGatewayToolConfigVO>> toolGroup = allConfigs
+        // 构建父子节点映射关系
+        Map<String, List<McpToolProtocolConfigVO.ProtocolMapping>> treeMap = mappings
                 .stream()
-                .collect(Collectors.groupingBy(McpGatewayToolConfigVO::getToolId));
+                .filter(m -> m.getParentPath() != null && !m
+                        .getParentPath()
+                        .isEmpty())
+                .collect(Collectors.groupingBy(McpToolProtocolConfigVO.ProtocolMapping::getParentPath));
 
-        // 遍历分组后的工具配置，逐个构建 MCP 工具对象
-        return toolGroup
-                .values()
+        // 获取根节点字段：筛选出没有父路径的字段作为多叉树的根
+        List<McpToolProtocolConfigVO.ProtocolMapping> roots = mappings
                 .stream()
-                .map(configs -> {
+                .filter(m -> m.getParentPath() == null || m
+                        .getParentPath()
+                        .isEmpty())
+                // 2. 物理排序：保证生成的 JSON 字段顺序与数据库配置一致，方便 AI 顺序理解
+                .sorted(Comparator.comparingInt(m -> m.getSortOrder() != null ? m.getSortOrder() : 0))
+                .toList();
 
-                    // 构建父子字段映射关系：父路径 -> 子字段配置列表，用于递归构建嵌套结构
-                    Map<String, List<McpGatewayToolConfigVO>> childrenMap = configs
-                            .stream()
-                            .filter(c -> c.getParentPath() != null)
-                            .collect(Collectors.groupingBy(McpGatewayToolConfigVO::getParentPath));
+        // 递归构建Schema节点
+        SchemaNode result = recursiveBuild(roots, treeMap);
 
-                    // 筛选根字段（无父路径），并按照排序字段升序排列
-                    List<McpGatewayToolConfigVO> roots = configs
-                            .stream()
-                            .filter(c -> c.getParentPath() == null || c
-                                    .getParentPath()
-                                    .isEmpty())
-                            .sorted(Comparator.comparingInt(o -> o.getSortOrder() != null ? o.getSortOrder() : 0))
-                            .collect(Collectors.toList());
-
-                    // 递归构建嵌套字段结构，生成 Schema 节点数据
-                    SchemaNode rootNode = buildNodeStructure(roots, childrenMap);
-
-                    // 基于节点数据构建 JSON Schema 对象，符合 MCP 协议入参规范
-                    McpSchemaVO.JsonSchema inputSchema = new McpSchemaVO.JsonSchema("object", rootNode.properties(),
-                            rootNode
-                                    .required()
-                                    .isEmpty() ? null : rootNode.required(), false, null, null);
-
-                    // 构建 MCP 标准工具对象，包含名称、描述、入参 Schema
-                    return new McpSchemaVO.Tool(gatewayConfig.getToolName(), gatewayConfig.getToolDescription(),
-                            inputSchema);
-                })
-                .collect(Collectors.toList());
+        // 组装MCP标准JSON Schema根对象
+        return new McpSchemaVO.JsonSchema("object",             // JSON Schema 规范：MCP 工具入参根节点必须为对象类型
+                result.properties(),             // 递归生成的参数树：由 mcp_protocol_mapping 表层级转换而来
+                result
+                        .required()
+                        .isEmpty() ? null : result.required(),         // 约束：显式声明必填字段数组，若无必填项则设为 null 以简化报文
+                false,                           // 安全策略：禁止 AI 传入未定义的额外参数 (additionalProperties=false)
+                null,                            // 扩展位：$defs (Draft 2019-09+) 预留，当前采用递归平铺模式
+                null                             // 兼容位：definitions (旧版规范) 预留，确保协议向前兼容性
+        );
     }
 
     /**
-     * 递归构建嵌套字段结构节点
-     * 遍历当前层级字段，处理子字段递归，封装属性集合与必填字段列表
+     * 递归构建多叉树结构的 JSON Schema
      *
-     * @param nodes       当前层级的字段配置列表
-     * @param childrenMap 父子字段映射关系
-     * @return 封装完成的字段结构节点，包含属性和必填字段
+     * @param currentLevelNodes 当前层级的节点列表（同属于同一个父路径）
+     * @param treeMap           全局节点索引表（Key: 父路径, Value: 该路径下的所有子节点）
+     * @return 封装了当前层级 properties 和 required 的 SchemaNode 单元
      */
-    private SchemaNode buildNodeStructure(List<McpGatewayToolConfigVO> nodes, Map<String,
-            List<McpGatewayToolConfigVO>> childrenMap) {
-        // 有序存储字段属性，保证 Schema 结构顺序与配置一致
-        Map<String, Object> properties = new LinkedHashMap<>();
-        // 存储必填字段名称列表
-        List<String> required = new ArrayList<>();
+    private SchemaNode recursiveBuild(List<McpToolProtocolConfigVO.ProtocolMapping> currentLevelNodes, Map<String,
+            List<McpToolProtocolConfigVO.ProtocolMapping>> treeMap) {
+        // 1. 结构初始化：使用 LinkedHashMap 维护字段插入顺序，满足 AI 对参数阅读的逻辑一致性
+        Map<String, Object> properties = new LinkedHashMap<>(currentLevelNodes.size());
+        List<String> requiredFields = new ArrayList<>();
 
-        // 遍历当前层级所有字段配置，逐个构建字段属性
-        for (McpGatewayToolConfigVO node : nodes) {
-            Map<String, Object> propertyMap = new LinkedHashMap<>();
-            // 设置字段数据类型
-            propertyMap.put("type", node.getMcpType());
+        for (McpToolProtocolConfigVO.ProtocolMapping node : currentLevelNodes) {
+            // 2. 节点元数据容器：存储 type, description, properties 等符合 JSON Schema 规范的键值对
+            Map<String, Object> fieldMeta = new LinkedHashMap<>();
 
-            // 字段描述不为空时，添加描述信息
-            if (node.getMcpDescription() != null) {
-                propertyMap.put("description", node.getMcpDescription());
+            // 核心：映射数据类型。若数据库未配置，默认降级为 string 以保证协议自洽
+            fieldMeta.put("type", Optional
+                    .ofNullable(node.getMcpType())
+                    .orElse("string"));
+
+            // 指令：注入字段描述信息。这是 AI 能够正确提取参数的“灵魂”，非空则注入
+            if (node.getMcpDescription() != null && !node
+                    .getMcpDescription()
+                    .isBlank()) {
+                fieldMeta.put("description", node.getMcpDescription());
             }
 
-            // 递归处理子字段：当前字段存在子字段时，构建子层级结构
-            List<McpGatewayToolConfigVO> children = childrenMap.get(node.getMcpPath());
+            // 3. 深度遍历 (Deep Dive)：通过当前节点的 mcpPath 在索引表中查找下属子节点
+            List<McpToolProtocolConfigVO.ProtocolMapping> children = treeMap.get(node.getMcpPath());
             if (children != null && !children.isEmpty()) {
-                // 子字段按照排序规则排序
-                children.sort(Comparator.comparingInt(o -> o.getSortOrder() != null ? o.getSortOrder() : 0));
-                // 递归构建子字段结构
-                SchemaNode childResult = buildNodeStructure(children, childrenMap);
-                // 设置子字段属性
-                propertyMap.put("properties", childResult.properties());
-                // 子字段存在必填项时，添加必填字段列表
-                if (!childResult
+                // 物理排序：确保嵌套对象内部的字段也遵循配置定义的 sort_order 顺序
+                children.sort(Comparator.comparingInt(m -> m.getSortOrder() != null ? m.getSortOrder() : 0));
+
+                // 进入下一层级递归
+                SchemaNode childNode = recursiveBuild(children, treeMap);
+
+                // 组装嵌套结构：将子层的构建结果回填至父层的 properties 中
+                if (!childNode
+                        .properties()
+                        .isEmpty()) {
+                    fieldMeta.put("properties", childNode.properties());
+                }
+                // 约束冒泡：将子层定义的 required 数组按照规范声明在当前对象级
+                if (!childNode
                         .required()
                         .isEmpty()) {
-                    propertyMap.put("required", childResult.required());
+                    fieldMeta.put("required", childNode.required());
                 }
             }
 
-            // 将当前字段属性加入集合
-            properties.put(node.getFieldName(), propertyMap);
-            // 配置为必填字段时，加入必填列表
-            if (Integer
-                    .valueOf(1)
-                    .equals(node.getIsRequired())) {
-                required.add(node.getFieldName());
+            // 4. 节点锚定：以 fieldName 为键。注意：fieldName 必须与 AI 看到的协议名称严格对齐
+            properties.put(node.getFieldName(), fieldMeta);
+
+            // 5. 状态转换：将业务层面的 Integer(1) 状态转换为协议层面的 required 约束列表
+            if (node.getIsRequired() != null && node.getIsRequired() == 1) {
+                requiredFields.add(node.getFieldName());
             }
         }
 
-        // 返回封装好的结构节点
-        return new SchemaNode(properties, required);
+        // 向上层回溯当前组装完毕的节点单元
+        return new SchemaNode(properties, requiredFields);
     }
 
     /**
-     * 字段结构封装对象
-     * 统一管理 JSON Schema 中的字段属性集合和必填字段列表
-     *
-     * @param properties 字段属性集合（字段名 -> 字段配置）
-     * @param required   必填字段名称列表
+     * Schema 结构节点中间承载对象
+     * 在多叉树递归构建过程中，用于临时封装当前层级的属性集合与约束规则。
+     * properties 属性映射表：存储当前层级下所有字段的元数据（Key 为 fieldName，Value 为字段配置 Map）
+     * required   必填约束列表：存储当前层级中所有 isRequired=1 的字段名，符合 JSON Schema 规范
      */
     private record SchemaNode(Map<String, Object> properties, List<String> required) {
     }

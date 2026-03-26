@@ -224,9 +224,18 @@ public final class McpSchemaVO {
     /** JSON Schema结构，用于描述入参格式 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record JsonSchema(String type, Map<String, Object> properties, List<String> required,
-                             Boolean additionalProperties, @JsonProperty("$defs") Map<String, Object> defs,
-                             Map<String, Object> definitions) {
+    public record JsonSchema( /** 数据类型，如 object/string/number/boolean */
+                              String type,
+                              /** 字段属性定义集合 */
+                              Map<String, Object> properties,
+                              /** 必填字段名称列表 */
+                              List<String> required,
+                              /** 是否允许额外属性 */
+                              Boolean additionalProperties,
+                              /** 公共定义集合，JSON Schema标准字段 */
+                              @JsonProperty("$defs") Map<String, Object> defs,
+                              /** 兼容旧版的定义集合 */
+                              Map<String, Object> definitions) {
     }
 
     /** MCP工具定义 */
@@ -295,9 +304,18 @@ public final class McpSchemaVO {
 
     /** 服务端能力 */
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
-    public record ServerCapabilities(CompletionCapabilities completions, Map<String, Object> experimental,
-                                     LoggingCapabilities logging, PromptCapabilities prompts,
-                                     ResourceCapabilities resources, ToolCapabilities tools) {
+    public record ServerCapabilities(/** 自动补全能力 */
+                                     CompletionCapabilities completions,
+                                     /** 实验性扩展能力 */
+                                     Map<String, Object> experimental,
+                                     /** 日志控制能力 */
+                                     LoggingCapabilities logging,
+                                     /** 提示词模板能力 */
+                                     PromptCapabilities prompts,
+                                     /** 资源管理能力 */
+                                     ResourceCapabilities resources,
+                                     /** 工具调用能力 */
+                                     ToolCapabilities tools) {
         public record CompletionCapabilities() {
         }
 

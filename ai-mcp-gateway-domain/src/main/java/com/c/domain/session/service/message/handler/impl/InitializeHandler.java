@@ -3,6 +3,7 @@ package com.c.domain.session.service.message.handler.impl;
 import com.c.domain.session.adapter.repository.GatewayRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
+import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
 import com.c.types.exception.AppException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -13,65 +14,79 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * MCP 初始化请求处理器
- * 处理客户端与服务端的initialize握手流程，返回服务端能力、版本与基础配置信息
+ * MCP初始化请求处理器
+ * 处理客户端与服务端的初始化握手，完成身份校验、协议协商与服务端能力声明
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/26
  */
 @Slf4j
 @Service("initializeHandler")
 @RequiredArgsConstructor
 public class InitializeHandler implements IRequestHandler {
 
-    /** 网关配置仓储，用于查询MCP网关与工具的核心配置信息 */
+    /** 网关配置仓储 */
     private final GatewayRepository gatewayRepository;
 
     /**
-     * 处理MCP初始化握手请求
+     * 处理MCP初始化请求
      *
-     * @param gatewayId 网关唯一标识
-     * @param message   JSON-RPC请求消息
-     * @return 初始化结果响应，包含服务端能力与版本信息
+     * @param gatewayId 网关ID
+     * @param message   JSON-RPC消息
+     * @return 初始化响应结果
      */
     @Override
     public Flux<McpSchemaVO.JSONRPCResponse> handle(String gatewayId, McpSchemaVO.JSONRPCMessage message) {
-        // 校验消息类型：仅处理Request请求
+        // 校验消息类型是否为合法请求
         if (!(message instanceof McpSchemaVO.JSONRPCRequest req)) {
-            return Flux.error(new AppException("MCP-400", "initialize 只能处理请求消息"));
+            return Flux.error(new AppException("MCP-400", "Initialize 必须为请求类型消息"));
         }
-        log.info("initialize | gatewayId={} | params={}", gatewayId, McpSchemaVO.toJson(req.params()));
 
-        // 将请求参数转换为初始化请求对象，并校验非空
-        McpSchemaVO.InitializeRequest initializeRequest = McpSchemaVO.convert(req.params(), new TypeReference<>() {
-        });
+        // 解析初始化请求参数
+        McpSchemaVO.InitializeRequest initializeRequest = McpSchemaVO.convert(req.params(),
+                new TypeReference<McpSchemaVO.InitializeRequest>() {
+                });
         if (initializeRequest == null) {
-            return Flux.error(new AppException("MCP-400", "initialize params 不能为空"));
+            return Flux.error(new AppException("MCP-400", "Initialize 请求参数解析失败"));
         }
 
-        // 根据网关ID查询配置信息，配置不存在则抛出404异常
+        log.info("MCP_INIT_START | gatewayId={} | clientVersion={}", gatewayId, initializeRequest.protocolVersion());
+
+        // 查询并校验网关基础配置信息
         McpGatewayConfigVO config = Optional
                 .ofNullable(gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
-                .orElseThrow(() -> new AppException("MCP-404", "gateway config not found"));
+                .orElseThrow(() -> new AppException("MCP-404", "网关未授权或不存在: " + gatewayId));
 
-        // 协议版本兼容：使用客户端传入版本，无则使用默认最新版本
+        // 查询网关下可用工具配置
+        List<McpToolConfigVO> tools = gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+        if (tools == null || tools.isEmpty()) {
+            log.warn("MCP_INIT_WARNING | gatewayId={} | 原因: 当前网关未配置任何可用工具(Tools为空)", gatewayId);
+        }
+
+        // 协商协议版本，优先使用客户端版本
         String protocolVersion = StringUtils.hasText(initializeRequest.protocolVersion()) ?
                 initializeRequest.protocolVersion() : McpSchemaVO.LATEST_PROTOCOL_VERSION;
 
-        // 构建初始化响应结果：协议版本+服务端能力+实现信息+描述
-        McpSchemaVO.InitializeResult result = new McpSchemaVO.InitializeResult(protocolVersion,
+        // 构建服务端能力声明
+        McpSchemaVO.ServerCapabilities capabilities =
                 new McpSchemaVO.ServerCapabilities(new McpSchemaVO.ServerCapabilities.CompletionCapabilities(),
                         Collections.emptyMap(), new McpSchemaVO.ServerCapabilities.LoggingCapabilities(),
                         new McpSchemaVO.ServerCapabilities.PromptCapabilities(true),
-                        new McpSchemaVO.ServerCapabilities.ResourceCapabilities(false, true),
-                        new McpSchemaVO.ServerCapabilities.ToolCapabilities(true)),
-                new McpSchemaVO.Implementation(config.getToolName(), config.getToolVersion()),
-                config.getToolDescription());
+                        new McpSchemaVO.ServerCapabilities.ResourceCapabilities(true, true),
+                        new McpSchemaVO.ServerCapabilities.ToolCapabilities(true));
 
-        // 返回初始化成功响应
+        // 构建初始化响应结果
+        McpSchemaVO.InitializeResult result = new McpSchemaVO.InitializeResult(protocolVersion, capabilities,
+                new McpSchemaVO.Implementation(config.getGatewayName(), config.getGatewayVersion()),
+                config.getGatewayDescription());
+
+        log.info("MCP_INIT_SUCCESS | gatewayId={} | version={}", gatewayId, protocolVersion);
+
+        // 返回成功响应
         return Flux.just(McpSchemaVO.JSONRPCResponse.ofSuccess(req.id(), result));
     }
 }
