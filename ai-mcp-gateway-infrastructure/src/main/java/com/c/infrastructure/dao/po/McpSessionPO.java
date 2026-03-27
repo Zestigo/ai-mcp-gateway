@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * MCP 会话持久化对象
+ * MCP 会话数据库持久化对象
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/27
  */
 @Data
 @Builder
@@ -19,16 +19,22 @@ import java.util.Date;
 @AllArgsConstructor
 public class McpSessionPO {
 
-    /** 会话唯一标识 */
+    /** 数据库自增主键 */
+    private Long id;
+
+    /** 业务唯一会话ID */
     private String sessionId;
 
     /** 关联网关ID */
     private String gatewayId;
 
-    /** 是否激活 1-活跃 0-失效 */
-    private Integer active;
+    /** 会话所在宿主机IP */
+    private String hostIp;
 
-    /** 超时时间（秒） */
+    /** 活跃状态：1-活跃 0-失效 */
+    private Integer active = 1; // 默认为 1
+
+    /** 会话超时时间，单位秒 */
     private Integer timeoutSeconds;
 
     /** 最后访问时间 */

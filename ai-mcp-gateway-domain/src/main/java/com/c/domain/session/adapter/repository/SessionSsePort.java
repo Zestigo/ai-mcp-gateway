@@ -13,6 +13,7 @@ public interface SessionSsePort {
 
     /**
      * 创建会话的 SSE 推送通道
+     *
      * @param sessionId 会话唯一标识
      * @return SSE 推送 Sink
      */
@@ -20,13 +21,20 @@ public interface SessionSsePort {
 
     /**
      * 获取会话的 SSE 推送通道
+     *
      * @param sessionId 会话唯一标识
      * @return SSE 推送 Sink
      */
     Sinks.Many<ServerSentEvent<String>> get(String sessionId);
 
     /**
+     * 发送数据（屏蔽底层 Sinks 细节，供 MessageService 调用）
+     */
+    void send(String sessionId, ServerSentEvent<String> event);
+
+    /**
      * 移除会话的 SSE 推送通道
+     *
      * @param sessionId 会话唯一标识
      */
     void remove(String sessionId);

@@ -46,6 +46,10 @@
             <groupId>com.c</groupId>
             <artifactId>ai-mcp-gateway-case</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-redis</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

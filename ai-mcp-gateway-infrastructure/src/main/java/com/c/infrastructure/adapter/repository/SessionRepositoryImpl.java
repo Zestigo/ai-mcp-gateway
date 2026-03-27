@@ -10,67 +10,96 @@ import org.springframework.stereotype.Repository;
 import java.util.*;
 
 /**
- * MCP 会话仓储的数据库持久化实现
- * 负责完成会话实体与数据库记录之间的转换，以及会话数据的增删改查操作
+ * MCP会话仓储数据库实现类
  *
  * @author cyh
- * @date 2026/03/25
+ * @date 2026/03/27
  */
 @Repository
 @RequiredArgsConstructor
 public class SessionRepositoryImpl implements SessionRepository {
 
-    /** 会话数据访问对象 */
+    /** MCP会话数据库操作接口 */
     private final McpSessionDao mcpSessionDao;
 
     /**
-     * 将会话实体保存到数据库
+     * 将会话领域实体转换为PO并持久化到数据库
      *
-     * @param session 待保存的会话实体
+     * @param session 会话领域实体
      */
     @Override
     public void save(McpSession session) {
-        // 构建会话持久化对象，完成领域实体到PO的转换
+        if (session == null) return;
+
         McpSessionPO po = McpSessionPO
                 .builder()
                 .sessionId(session.getSessionId())
                 .gatewayId(session.getGatewayId())
-                .active(session.isActive() ? 1 : 0)
+                .hostIp(session.getHostIp())
+                .active(session.getActiveState())
                 .timeoutSeconds(session.getTimeoutSeconds())
                 .lastAccessTime(Date.from(session.getLastAccessTime()))
-                .createTime(new Date())
+                .createTime(session.getCreateTime() != null ? Date.from(session.getCreateTime()) : new Date())
                 .updateTime(new Date())
                 .build();
-        // 调用DAO执行插入操作
+
         mcpSessionDao.insert(po);
     }
 
     /**
-     * 根据会话ID查询会话信息
+     * 根据会话ID查询PO并转换为领域实体
      *
      * @param sessionId 会话唯一标识
-     * @return 会话实体，不存在则返回null
+     * @return 会话领域实体，不存在返回null
      */
     @Override
     public McpSession find(String sessionId) {
-        // 根据会话ID查询数据库记录
         McpSessionPO po = mcpSessionDao.selectBySessionId(sessionId);
         if (po == null) return null;
 
-        // 将持久化对象转换为领域实体
-        McpSession session = new McpSession(po.getSessionId(), po.getGatewayId(), po.getTimeoutSeconds());
-        session.setActive(po.getActive() == 1);
-        session.setLastAccessTime(po
-                .getLastAccessTime()
-                .toInstant());
-        return session;
+        return McpSession
+                .builder()
+                .sessionId(po.getSessionId())
+                .gatewayId(po.getGatewayId())
+                .hostIp(po.getHostIp())
+                .active(po.getActive() == 1)
+                .timeoutSeconds(po.getTimeoutSeconds())
+                .lastAccessTime(po
+                        .getLastAccessTime()
+                        .toInstant())
+                .createTime(po.getCreateTime() != null ? po
+                        .getCreateTime()
+                        .toInstant() : null)
+                .build();
     }
 
     /**
-     * 根据会话ID精确查询会话信息
+     * 更新会话信息，同步更新数据库记录
+     *
+     * @param session 会话领域实体
+     */
+    @Override
+    public void update(McpSession session) {
+        if (session == null) return;
+
+        McpSessionPO po = McpSessionPO
+                .builder()
+                .sessionId(session.getSessionId())
+                .hostIp(session.getHostIp())
+                .active(session.getActiveState())
+                .timeoutSeconds(session.getTimeoutSeconds())
+                .lastAccessTime(Date.from(session.getLastAccessTime()))
+                .updateTime(new Date())
+                .build();
+
+        mcpSessionDao.update(po);
+    }
+
+    /**
+     * 根据会话ID查询会话（代理find方法）
      *
      * @param sessionId 会话唯一标识
-     * @return 会话实体，不存在则返回null
+     * @return 会话领域实体
      */
     @Override
     public McpSession findBySessionId(String sessionId) {
@@ -78,27 +107,7 @@ public class SessionRepositoryImpl implements SessionRepository {
     }
 
     /**
-     * 更新数据库中的会话信息
-     *
-     * @param session 待更新的会话实体
-     */
-    @Override
-    public void update(McpSession session) {
-        // 构建更新用的持久化对象
-        McpSessionPO po = McpSessionPO
-                .builder()
-                .sessionId(session.getSessionId())
-                .active(session.isActive() ? 1 : 0)
-                .timeoutSeconds(session.getTimeoutSeconds())
-                .lastAccessTime(Date.from(session.getLastAccessTime()))
-                .updateTime(new Date())
-                .build();
-        // 执行数据库更新
-        mcpSessionDao.update(po);
-    }
-
-    /**
-     * 根据会话ID从数据库删除会话记录
+     * 根据会话ID删除数据库会话记录
      *
      * @param sessionId 会话唯一标识
      */
@@ -108,7 +117,7 @@ public class SessionRepositoryImpl implements SessionRepository {
     }
 
     /**
-     * 移除指定会话（委托给deleteById实现）
+     * 移除会话（代理deleteById方法）
      *
      * @param sessionId 会话唯一标识
      */
@@ -118,9 +127,9 @@ public class SessionRepositoryImpl implements SessionRepository {
     }
 
     /**
-     * 统计当前系统中处于活跃状态的会话总数
+     * 统计活跃会话数量
      *
-     * @return 活跃会话数量
+     * @return 活跃会话数
      */
     @Override
     public long countActiveSessions() {
@@ -128,9 +137,9 @@ public class SessionRepositoryImpl implements SessionRepository {
     }
 
     /**
-     * 删除数据库中已过期或已失效的会话记录
+     * 删除数据库中过期会话记录
      *
-     * @return 被删除的会话数量
+     * @return 删除记录数
      */
     @Override
     public int deleteExpiredSessions() {
@@ -138,47 +147,56 @@ public class SessionRepositoryImpl implements SessionRepository {
     }
 
     /**
-     * 根据网关ID查询关联的所有会话ID
+     * 根据网关ID查询关联会话ID集合
      *
      * @param gatewayId 网关唯一标识
      * @return 会话ID集合
      */
     @Override
     public Set<String> findByGateway(String gatewayId) {
-        // 查询网关下所有会话记录
         List<McpSessionPO> poList = mcpSessionDao.selectByGatewayId(gatewayId);
         Set<String> sessionIds = new HashSet<>();
-        // 提取会话ID并封装为集合返回
-        for (McpSessionPO po : poList) {
-            sessionIds.add(po.getSessionId());
+        if (poList != null) {
+            for (McpSessionPO po : poList) {
+                sessionIds.add(po.getSessionId());
+            }
         }
         return sessionIds;
     }
 
     /**
-     * 查询数据库中的所有会话记录
+     * 查询所有会话并转换为领域实体集合
      *
      * @return 会话实体集合
      */
     @Override
     public Collection<McpSession> findAll() {
-        // 查询所有会话记录
         List<McpSessionPO> poList = mcpSessionDao.selectAll();
         List<McpSession> sessions = new ArrayList<>();
-        // 转换为领域实体列表
-        for (McpSessionPO po : poList) {
-            McpSession session = new McpSession(po.getSessionId(), po.getGatewayId(), po.getTimeoutSeconds());
-            session.setActive(po.getActive() == 1);
-            session.setLastAccessTime(po
-                    .getLastAccessTime()
-                    .toInstant());
-            sessions.add(session);
+        if (poList != null) {
+            for (McpSessionPO po : poList) {
+                McpSession session = McpSession
+                        .builder()
+                        .sessionId(po.getSessionId())
+                        .gatewayId(po.getGatewayId())
+                        .hostIp(po.getHostIp())
+                        .active(po.getActive() == 1)
+                        .timeoutSeconds(po.getTimeoutSeconds())
+                        .lastAccessTime(po
+                                .getLastAccessTime()
+                                .toInstant())
+                        .createTime(po.getCreateTime() != null ? po
+                                .getCreateTime()
+                                .toInstant() : null)
+                        .build();
+                sessions.add(session);
+            }
         }
         return sessions;
     }
 
     /**
-     * 统计会话总数量
+     * 统计会话总数量（复用活跃会话统计）
      *
      * @return 会话总数
      */

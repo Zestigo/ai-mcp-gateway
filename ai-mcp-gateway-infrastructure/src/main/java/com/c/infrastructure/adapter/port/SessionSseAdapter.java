@@ -9,26 +9,26 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 会话SSE连接存储适配器
+ * SessionSsePort 适配器实现
+ * 基于内存 ConcurrentHashMap 管理 SSE 连接 Sink
  *
  * @author cyh
- * @date 2026/03/24
+ * @date 2026/03/27
  */
 @Component
 public class SessionSseAdapter implements SessionSsePort {
 
-    /** SSE推送通道 */
+    /** 会话ID -> SSE 广播通道 */
     private final Map<String, Sinks.Many<ServerSentEvent<String>>> sinks = new ConcurrentHashMap<>();
 
     /**
-     * 创建SSE通道
+     * 创建多路广播 Sink，支持背压缓冲
      *
-     * @param sessionId 会话标识
-     * @return 推送通道
+     * @param sessionId 会话ID
+     * @return Sinks.Many
      */
     @Override
     public Sinks.Many<ServerSentEvent<String>> create(String sessionId) {
-        // 多播通道，支持背压
         return sinks.computeIfAbsent(sessionId, k -> Sinks
                 .many()
                 .multicast()
@@ -36,10 +36,10 @@ public class SessionSseAdapter implements SessionSsePort {
     }
 
     /**
-     * 获取SSE通道
+     * 获取对应会话的 Sink
      *
-     * @param sessionId 会话标识
-     * @return 推送通道
+     * @param sessionId 会话ID
+     * @return Sink
      */
     @Override
     public Sinks.Many<ServerSentEvent<String>> get(String sessionId) {
@@ -47,16 +47,31 @@ public class SessionSseAdapter implements SessionSsePort {
     }
 
     /**
-     * 移除SSE通道
+     * 移除 Sink 并关闭通道
      *
-     * @param sessionId 会话标识
+     * @param sessionId 会话ID
      */
     @Override
     public void remove(String sessionId) {
         Sinks.Many<ServerSentEvent<String>> sink = sinks.remove(sessionId);
         if (sink != null) {
-            // 关闭通道
+            // 发送完成信号，关闭流
             sink.tryEmitComplete();
+        }
+    }
+
+    /**
+     * 向指定会话发送 SSE 事件
+     *
+     * @param sessionId 会话ID
+     * @param event     SSE 事件
+     */
+    @Override
+    public void send(String sessionId, ServerSentEvent<String> event) {
+        Sinks.Many<ServerSentEvent<String>> sink = sinks.get(sessionId);
+        if (sink != null) {
+            // 非阻塞发送，不影响调用线程
+            sink.tryEmitNext(event);
         }
     }
 }

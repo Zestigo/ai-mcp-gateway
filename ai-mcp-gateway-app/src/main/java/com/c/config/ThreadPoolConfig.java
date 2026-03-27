@@ -1,6 +1,6 @@
-package com.c.infrastructure.config;
+package com.c.config;
 
-import com.c.infrastructure.properties.ThreadPoolConfigProperties;
+import com.c.config.properties.ThreadPoolConfigProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

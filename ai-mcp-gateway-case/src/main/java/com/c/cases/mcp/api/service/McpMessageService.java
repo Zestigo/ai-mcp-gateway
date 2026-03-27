@@ -1,12 +1,24 @@
 package com.c.cases.mcp.api.service;
 
+import com.c.domain.session.model.entity.HandleMessageCommandEntity;
+import org.springframework.http.ResponseEntity;
+import reactor.core.publisher.Mono;
+
 /**
- * MCP 消息处理服务顶层接口
- * 作为消息处理模块的标准扩展接口，定义统一规范，用于后续业务能力扩展
- *
- * @author cyh
- * @date 2026/03/24
+ * MCP 消息处理服务接口
+ * 职责：处理 JSON-RPC 指令回执，以及向已存在的 SSE 通道异步推送数据
  */
 public interface McpMessageService {
 
+    /**
+     * 处理前端发送的 MCP 指令消息 (Request-Response 模型)
+     */
+    Mono<ResponseEntity<Void>> handleMessage(HandleMessageCommandEntity commandEntity);
+
+    /**
+     * 后端主动向指定会话推送消息 (Async Push 模型)
+     * @param sessionId 会话ID
+     * @param message 消息对象（会自动转 JSON）
+     */
+    Mono<Void> pushMessage(String sessionId, Object message);
 }

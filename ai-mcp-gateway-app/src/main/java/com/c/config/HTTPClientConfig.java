@@ -1,4 +1,4 @@
-package com.c.infrastructure.config;
+package com.c.config;
 
 import com.c.infrastructure.gateway.GenericHttpGateway;
 import lombok.extern.slf4j.Slf4j;

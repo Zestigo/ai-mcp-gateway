@@ -1,95 +1,79 @@
 package com.c.domain.session.model.entity;
 
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Duration;
 import java.time.Instant;
 
 /**
- * 会话实体
+ * MCP会话领域实体
+ * 存储会话核心属性与生命周期状态，提供会话活跃校验、过期判断、续期能力
  *
  * @author cyh
- * @date 2026/03/24
+ * @date 2026/03/27
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class McpSession {
 
-    /** 默认超时时间（秒） */
+    /** 默认会话超时时间，单位：秒，默认30分钟 */
     private static final int DEFAULT_TIMEOUT_SECONDS = 1800;
 
-    /** 会话唯一标识 */
-    private final String sessionId;
+    /** 会话唯一标识，全局不可重复 */
+    private String sessionId;
 
-    /** 网关唯一标识 */
-    private final String gatewayId;
+    /** 网关唯一标识，标识会话所属网关 */
+    private String gatewayId;
 
-    /** 会话超时时间（秒） */
-    private final Integer timeoutSeconds;
+    /** 会话所在宿主机IP，用于分布式跨节点消息路由 */
+    private String hostIp;
 
-    /** 会话创建时间 */
-    private final Instant createTime;
+    /** 会话超时时间，为空使用默认值 */
+    @Builder.Default
+    private Integer timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
 
-    /** 最后访问时间 */
-    private volatile Instant lastAccessTime;
+    /** 会话创建时间，创建时自动初始化 */
+    @Builder.Default
+    private Instant createTime = Instant.now();
 
-    /** 会话是否有效 */
+    /** 会话最后访问时间，volatile保证多线程可见性 */
+    @Builder.Default
+    private volatile Instant lastAccessTime = Instant.now();
+
+    /** 会话活跃状态，true-活跃 false-失效，volatile保证多线程可见性 */
+    @Builder.Default
     private volatile boolean active = true;
 
     /**
-     * 构造方法
-     *
-     * @param sessionId      会话唯一标识
-     * @param gatewayId      网关唯一标识
-     * @param timeoutSeconds 超时时间
-     */
-    public McpSession(String sessionId, String gatewayId, Integer timeoutSeconds) {
-        this.sessionId = sessionId;
-        this.gatewayId = gatewayId;
-        // 超时时间为空或小于0时，使用默认超时时间
-        this.timeoutSeconds = (timeoutSeconds == null || timeoutSeconds <= 0) ? DEFAULT_TIMEOUT_SECONDS :
-                timeoutSeconds;
-        this.createTime = Instant.now();
-        // 初始化最后访问时间为创建时间
-        this.lastAccessTime = this.createTime;
-    }
-
-    /**
-     * 构造方法（使用默认超时）
-     *
-     * @param sessionId 会话唯一标识
-     * @param gatewayId 网关唯一标识
-     */
-    public McpSession(String sessionId, String gatewayId) {
-        this(sessionId, gatewayId, null);
-    }
-
-    /**
-     * 更新最后访问时间
+     * 刷新会话最后访问时间
+     * 用于会话心跳、请求处理时更新活跃时间
      */
     public void touch() {
-        // 刷新会话活跃时间，避免过期
         this.lastAccessTime = Instant.now();
     }
 
     /**
-     * 将会话标记为无效
+     * 判断会话是否已过期
+     * 基于最后访问时间+超时时间与当前时间对比
+     *
+     * @return true-已过期 false-未过期
      */
-    public void deactivate() {
-        // 标记会话为失效状态
-        this.active = false;
+    public boolean isExpired() {
+        int timeout = (timeoutSeconds == null || timeoutSeconds <= 0) ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
+        return Instant
+                .now()
+                .isAfter(lastAccessTime.plus(Duration.ofSeconds(timeout)));
     }
 
     /**
-     * 判断会话是否过期
+     * 获取会话活跃状态数值
+     * 用于MyBatis持久化映射，布尔值转换为数字
      *
-     * @return 过期返回 true
+     * @return 1-活跃 0-失效
      */
-    public boolean isExpired() {
-        // 当前时间减去超时时间，若最后访问时间更早则判定过期
-        return lastAccessTime.isBefore(Instant
-                .now()
-                .minus(Duration.ofSeconds(timeoutSeconds)));
+    public int getActiveState() {
+        return active ? 1 : 0;
     }
 }

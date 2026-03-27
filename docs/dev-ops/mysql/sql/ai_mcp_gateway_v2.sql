@@ -186,7 +186,22 @@ VALUES
 /*!40000 ALTER TABLE `mcp_protocol_mapping` ENABLE KEYS */;
 UNLOCK TABLES;
 
-
+CREATE TABLE `mcp_session` (
+                               `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                               `session_id` varchar(64) NOT NULL COMMENT '会话唯一标识(UUID)',
+                               `gateway_id` varchar(64) NOT NULL COMMENT '所属网关标识',
+                               `host_ip` varchar(32) DEFAULT NULL COMMENT '创建该会话的宿主机IP (分布式寻址关键)',
+                               `active` tinyint(1) DEFAULT '1' COMMENT '是否有效 (1-有效, 0-失效)',
+                               `timeout_seconds` int(11) DEFAULT '1800' COMMENT '超时时间(秒)',
+                               `last_access_time` datetime NOT NULL COMMENT '最后访问时间 (用于过期判定)',
+                               `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                               `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                               PRIMARY KEY (`id`),
+                               UNIQUE KEY `uk_session_id` (`session_id`),
+                               KEY `idx_gateway_id` (`gateway_id`),
+                               KEY `idx_last_access` (`last_access_time`),
+                               KEY `idx_host_ip` (`host_ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MCP会话管理表';
 
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

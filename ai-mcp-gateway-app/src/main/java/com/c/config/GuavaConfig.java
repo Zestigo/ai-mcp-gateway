@@ -1,4 +1,4 @@
-package com.c.infrastructure.config;
+package com.c.config;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
