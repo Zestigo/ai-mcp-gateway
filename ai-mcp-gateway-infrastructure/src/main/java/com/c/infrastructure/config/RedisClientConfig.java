@@ -28,6 +28,9 @@ import javax.annotation.Resource;
  * Redis 客户端统一配置类
  * 负责 Redisson 客户端、RedisTemplate、Lua 脚本、序列化机制的全局配置
  * 统一序列化方案，保证本地缓存、Redis、数据库三层数据结构一致
+ *
+ * @author cyh
+ * @date 2026/03/28
  */
 @Configuration
 @EnableConfigurationProperties(RedisClientConfigProperties.class)
