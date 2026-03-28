@@ -19,6 +19,8 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 
+import static com.c.domain.session.model.valobj.McpSchemaVO.ErrorCodes.INTERNAL_ERROR;
+
 /**
  * 会话消息处理服务实现类
  *
@@ -139,7 +141,7 @@ public class SessionMessageServiceImpl implements SessionMessageService {
      */
     private Flux<McpSchemaVO.JSONRPCResponse> buildError(McpSchemaVO.JSONRPCMessage message, Throwable ex) {
         if (message instanceof McpSchemaVO.JSONRPCRequest req) {
-            return Flux.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), -32603, ex.getMessage(), null));
+            return Flux.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), INTERNAL_ERROR, ex.getMessage(), null));
         }
         return Flux.empty();
     }

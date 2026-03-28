@@ -38,19 +38,26 @@ public class DefaultMcpSessionFactory {
 
     @Data
     public static class DynamicContext {
-        /** 会话请求对象 */
+        /** 1. 原始输入：会话请求对象 (内含 gatewayId, apiKey) */
         private McpSessionRequest sessionRequest;
 
-        /** 网关配置对象 */
+        /** 2. 运行时配置：从数据库/配置中心加载的网关规则 */
         private McpGatewayConfigVO gatewayConfigVO;
 
-        /** 会话实体对象 */
+        /** 3. 产出物：创建成功的会话实体 */
         private McpSession session;
 
-        /** SSE消息推送通道 */
+        /** 4. 管道：SSE消息推送通道 */
         private Sinks.Many<ServerSentEvent<String>> sink;
 
-        /** 消息接收端点路径 */
+        /** 5. 辅助信息：消息接收端点路径 */
         private String endpointPath;
+
+        /** * 快捷获取 API Key
+         * 这样在 Node 节点里直接 context.getApiKey()，代码极简
+         */
+        public String getApiKey() {
+            return sessionRequest != null ? sessionRequest.getApiKey() : null;
+        }
     }
 }

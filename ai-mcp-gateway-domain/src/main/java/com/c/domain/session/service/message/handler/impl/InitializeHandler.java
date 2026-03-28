@@ -48,7 +48,7 @@ public class InitializeHandler implements IRequestHandler {
 
         // 解析初始化请求参数
         McpSchemaVO.InitializeRequest initializeRequest = McpSchemaVO.convert(req.params(),
-                new TypeReference<McpSchemaVO.InitializeRequest>() {
+                new TypeReference<>() {
                 });
         if (initializeRequest == null) {
             return Flux.error(new AppException("MCP-400", "Initialize 请求参数解析失败"));

@@ -1,6 +1,7 @@
 package com.c.domain.auth.model.entity;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
  * @date 2026/03/27
  */
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class RateLimitCommandEntity {

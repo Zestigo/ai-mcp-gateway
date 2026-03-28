@@ -18,6 +18,8 @@ import reactor.core.scheduler.Schedulers;
 import java.util.List;
 import java.util.Map;
 
+import static com.c.domain.session.model.valobj.McpSchemaVO.ErrorCodes.INTERNAL_ERROR;
+
 /**
  * MCP工具调用请求处理器
  * 处理tools/call类型请求，完成参数解析、协议配置加载、远程接口调用与响应封装
@@ -86,7 +88,7 @@ public class ToolsCallHandler implements IRequestHandler {
                    .onErrorResume(e -> {
                        // 统一异常处理，记录日志并返回标准错误响应
                        log.error("MCP_CALL_FAILED | gatewayId={} | error={}", gatewayId, e.getMessage(), e);
-                       int errorCode = (e instanceof AppException ae) ? safeParseInt(ae.getCode(), -32603) : -32603;
+                       int errorCode = (e instanceof AppException ae) ? safeParseInt(ae.getCode(), INTERNAL_ERROR) : INTERNAL_ERROR;
                        return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), errorCode, e.getMessage(), null));
                    })
                    // 转换为Flux类型以适配接口返回值

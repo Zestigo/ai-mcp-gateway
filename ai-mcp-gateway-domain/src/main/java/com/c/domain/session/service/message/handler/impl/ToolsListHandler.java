@@ -16,6 +16,8 @@ import reactor.core.scheduler.Schedulers;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.c.domain.session.model.valobj.McpSchemaVO.ErrorCodes.INTERNAL_ERROR;
+
 /**
  * MCP工具列表查询处理器
  * 处理tools/list协议请求，将工具配置转换为标准JSON Schema结构
@@ -81,7 +83,7 @@ public class ToolsListHandler implements IRequestHandler {
                    // 统一异常处理
                    .onErrorResume(e -> {
                        log.error("MCP_TOOLS_LIST_ERROR | gatewayId={}", gatewayId, e);
-                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), -32603, e.getMessage(), null));
+                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), INTERNAL_ERROR, e.getMessage(), null));
                    })
                    .flux();
     }
