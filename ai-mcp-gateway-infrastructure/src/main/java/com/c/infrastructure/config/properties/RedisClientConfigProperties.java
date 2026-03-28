@@ -3,18 +3,47 @@ package com.c.infrastructure.config.properties;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@Data // Lombok自动生成get/set
-@ConfigurationProperties(prefix = "redis.sdk.config") // 读取yml中redis.sdk.config前缀的配置
+/**
+ * Redis 客户端连接配置属性
+ * 从配置文件加载 Redis 连接、连接池、超时、重试等相关参数
+ *
+ * @author cyh
+ * @date 2026/03/28
+ */
+@Data
+@ConfigurationProperties(prefix = "redis.sdk.config")
 public class RedisClientConfigProperties {
-    private String host; // Redis主机
-    private int port; // 端口
-    private String password; // 密码（无则留空）
-    private int poolSize = 64; // 连接池大小
-    private int minIdleSize = 10; // 最小空闲连接数
-    private int idleTimeout = 10000; // 空闲连接超时
-    private int connectTimeout = 10000; // 连接超时
-    private int retryAttempts = 3; // 重试次数
-    private int retryInterval = 1000; // 重试间隔
-    private int pingInterval = 0; // 心跳检测间隔
-    private boolean keepAlive = true; // 保持长连接
+
+    /** Redis 服务地址 */
+    private String host;
+
+    /** Redis 服务端口 */
+    private int port;
+
+    /** Redis 访问密码，无密码时可为空 */
+    private String password;
+
+    /** 最大连接池大小 */
+    private int poolSize = 64;
+
+    /** 最小空闲连接数 */
+    private int minIdleSize = 10;
+
+    /** 空闲连接超时时间，单位：毫秒 */
+    private int idleTimeout = 10000;
+
+    /** 连接超时时间，单位：毫秒 */
+    private int connectTimeout = 10000;
+
+    /** 连接重试次数 */
+    private int retryAttempts = 3;
+
+    /** 重试间隔时间，单位：毫秒 */
+    private int retryInterval = 1000;
+
+    /** 心跳检测间隔，单位：毫秒，0 表示不开启 */
+    private int pingInterval = 0;
+
+    /** 是否启用长连接保持 */
+    private boolean keepAlive = true;
 }

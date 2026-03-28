@@ -7,6 +7,9 @@ import lombok.Getter;
  * Redis 缓存键统一管理类
  * 采用枚举模块化管理业务键空间，通过通用构建器生成规范缓存键
  * 遵循 mcp_gateway:业务模块:唯一标识 格式，避免键冲突并提升扩展性
+ *
+ * @author cyh
+ * @date 2026/03/27
  */
 public class RedisKeyConstants {
 
