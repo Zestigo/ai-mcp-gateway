@@ -8,11 +8,8 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * MCP网关持久化对象
- * 对应数据库网关配置表，存储网关基础信息与状态
- *
- * @author cyh
- * @date 2026/03/26
+ * MCP网关数据库持久化对象
+ * 映射数据库网关配置表，存储网关标识、名称、版本、状态、鉴权开关等核心配置信息
  */
 @Data
 @Builder
@@ -37,6 +34,9 @@ public class McpGatewayPO {
 
     /** 网关状态：0-禁用，1-启用 */
     private Integer status;
+
+    /** 网关鉴权开关：0-关闭鉴权，1-开启鉴权 */
+    private Integer auth;
 
     /** 记录创建时间 */
     private Date createTime;

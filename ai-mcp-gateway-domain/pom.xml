@@ -42,18 +42,14 @@
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
         </dependency>
-        <!-- 系统模块 -->
-        <dependency>
-            <groupId>com.c</groupId>
-            <artifactId>ai-mcp-gateway-types</artifactId>
-        </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
         </dependency>
+        <!-- 系统模块 -->
         <dependency>
-            <groupId>org.springframework.data</groupId>
-            <artifactId>spring-data-redis</artifactId>
+            <groupId>com.c</groupId>
+            <artifactId>ai-mcp-gateway-types</artifactId>
         </dependency>
     </dependencies>
 

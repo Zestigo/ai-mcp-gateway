@@ -15,21 +15,42 @@
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
+    <resultMap id="mcpGatewayCompositeMap" type="com.c.infrastructure.dao.po.McpGatewayCompositePO">
+        <result property="gatewayId" column="g_gateway_id"/>
+        <result property="auth" column="g_auth"/>
+        <result property="gatewayStatus" column="g_status"/>
+        <result property="apiKey" column="ga_api_key"/>
+        <result property="rateLimit" column="ga_rate_limit"/>
+        <result property="expireTime" column="ga_expire_time"/>
+        <result property="authStatus" column="ga_status"/>
+    </resultMap>
+
     <sql id="all_columns">
         id, gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time
     </sql>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO"
-            useGeneratedKeys="true" keyProperty="id">
+    <select id="queryCompositeAuth" parameterType="com.c.infrastructure.dao.po.McpGatewayCompositePO" resultMap="mcpGatewayCompositeMap">
+        SELECT g.gateway_id   AS g_gateway_id,
+               g.auth         AS g_auth,
+               g.status       AS g_status,
+               ga.api_key     AS ga_api_key,
+               ga.rate_limit  AS ga_rate_limit,
+               ga.expire_time AS ga_expire_time,
+               ga.status      AS ga_status
+        FROM mcp_gateway g
+                 INNER JOIN mcp_gateway_auth ga
+                            ON g.gateway_id = ga.gateway_id
+        WHERE g.gateway_id = #{gatewayId}
+          AND ga.api_key = #{apiKey}
+          AND g.status = 1
+          AND ga.status = 1
+          AND ga.expire_time > NOW()
+    </select>
+
+    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_gateway_auth (gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time)
         VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW())
     </insert>
-
-    <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE
-        FROM mcp_gateway_auth
-        WHERE id = #{id}
-    </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO">
         UPDATE mcp_gateway_auth
@@ -44,17 +65,37 @@
         WHERE id = #{id}
     </update>
 
-    <select id="queryByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayAuthMap">
+    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayAuthMap">
         SELECT
         <include refid="all_columns"/>
-        FROM mcp_gateway_auth
-        WHERE gateway_id = #{gatewayId}
+        FROM mcp_gateway_auth WHERE id = #{id}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayAuthMap">
         SELECT
         <include refid="all_columns"/>
-        FROM mcp_gateway_auth
+        FROM mcp_gateway_auth ORDER BY create_time DESC
     </select>
+
+    <select id="queryMcpGatewayAuthPO" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" resultMap="mcpGatewayAuthMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
+        WHERE gateway_id = #{gatewayId} AND api_key = #{apiKey} AND status = 1 AND expire_time > NOW()
+    </select>
+
+    <select id="queryEffectiveGatewayAuthCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT count(1)
+        FROM mcp_gateway_auth
+        WHERE gateway_id = #{gatewayId}
+          AND status = 1
+          AND expire_time > NOW()
+    </select>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE
+        FROM mcp_gateway_auth
+        WHERE id = #{id}
+    </delete>
 
 </mapper>
