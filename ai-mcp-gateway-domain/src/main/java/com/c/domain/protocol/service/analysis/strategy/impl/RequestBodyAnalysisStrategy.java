@@ -153,7 +153,7 @@ public class RequestBodyAnalysisStrategy extends AbstractProtocolAnalysisStrateg
                 .fieldName(rootName)
                 .mcpPath(rootName)
                 .mcpType(mcpType)
-                .mcpDesc(description)
+                .mcpDescription(description)
                 .isRequired(1)
                 .sortOrder(mappings.size() + 1)
                 .build());

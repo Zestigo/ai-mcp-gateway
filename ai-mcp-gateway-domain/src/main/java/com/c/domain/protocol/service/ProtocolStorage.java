@@ -1,5 +1,6 @@
 package com.c.domain.protocol.service;
 
+import com.c.domain.protocol.model.entity.StorageCommandEntity;
 import com.c.domain.protocol.model.valobj.http.HTTPProtocolVO;
 
 import java.util.List;
@@ -9,25 +10,16 @@ import java.util.List;
  * 定义协议解析结果的持久化契约
  *
  * @author cyh
- * @date 2026/03/28
+ * @date 2026/03/29
  */
 public interface ProtocolStorage {
 
     /**
-     * 批量存储网关协议配置
+     * 执行协议数据持久化操作
      *
-     * @param gatewayId   网关唯一标识
-     * @param protocolVOs 协议配置对象集合
+     * @param commandEntity 协议存储命令实体
+     * @return 协议唯一标识集合
      */
-    void store(String gatewayId, List<HTTPProtocolVO> protocolVOs);
+    List<Long> doStorage(StorageCommandEntity commandEntity);
 
-    /**
-     * 覆盖更新网关协议配置
-     *
-     * @param gatewayId   网关唯一标识
-     * @param protocolVOs 最新协议配置对象集合
-     */
-    default void update(String gatewayId, List<HTTPProtocolVO> protocolVOs) {
-        store(gatewayId, protocolVOs);
-    }
 }

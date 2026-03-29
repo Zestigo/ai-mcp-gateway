@@ -10,7 +10,7 @@ import java.util.List;
  * MCP协议字段映射数据访问接口
  *
  * @author cyh
- * @date 2026/03/26
+ * @date 2026/03/29
  */
 @Mapper
 public interface McpProtocolMappingDao {
@@ -62,5 +62,33 @@ public interface McpProtocolMappingDao {
      */
     List<McpProtocolMappingPO> queryMcpGatewayToolConfigListByProtocolId(Long protocolId);
 
+    /**
+     * 根据协议ID集合批量查询字段映射配置
+     *
+     * @param protocolIds 协议ID集合
+     * @return 字段映射持久化对象集合
+     */
     List<McpProtocolMappingPO> queryByProtocolIds(@Param("protocolIds") List<Long> protocolIds);
+
+    /**
+     * 批量新增字段映射配置
+     *
+     * @param mappingPOs 字段映射持久化对象集合
+     */
+    void insertList(List<McpProtocolMappingPO> mappingPOs);
+
+    /**
+     * 根据协议ID查询字段映射配置
+     *
+     * @param protocolId 协议ID
+     * @return 字段映射持久化对象集合
+     */
+    List<McpProtocolMappingPO> queryByProtocolId(Long protocolId);
+
+    /**
+     * 根据协议ID物理删除字段映射配置
+     *
+     * @param protocolId 协议ID
+     */
+    void deleteByProtocolId(Long protocolId);
 }

@@ -137,7 +137,7 @@ public class Swagger2McpProtocolHttpTest {
                                 .fieldName(rootName)
                                 .mcpPath(rootName)
                                 .mcpType(convertType(reqSchema.getString("type")))
-                                .mcpDesc(reqSchema.getString("description"))
+                                .mcpDescription(reqSchema.getString("description"))
                                 .isRequired(1)
                                 .sortOrder(1)
                                 .build();
@@ -186,7 +186,7 @@ public class Swagger2McpProtocolHttpTest {
                                 .fieldName(name)
                                 .mcpPath(name)
                                 .mcpType(convertType(type))
-                                .mcpDesc(description)
+                                .mcpDescription(description)
                                 .isRequired(required ? 1 : 0)
                                 .sortOrder(mappings.size() + 1)
                                 .build();
@@ -204,7 +204,7 @@ public class Swagger2McpProtocolHttpTest {
                                 .fieldName(name)
                                 .mcpPath(name)
                                 .mcpType(convertType(type))
-                                .mcpDesc(description)
+                                .mcpDescription(description)
                                 .isRequired(required ? 1 : 0)
                                 .sortOrder(mappings.size() + 1)
                                 .build();
@@ -267,7 +267,7 @@ public class Swagger2McpProtocolHttpTest {
                     .fieldName(propName)
                     .mcpPath(currentMcpPath)
                     .mcpType(convertType(type))
-                    .mcpDesc(description)
+                    .mcpDescription(description)
                     .isRequired(requiredList != null && requiredList.contains(propName) ? 1 : 0)
                     .sortOrder(sortOrder++)
                     .build();

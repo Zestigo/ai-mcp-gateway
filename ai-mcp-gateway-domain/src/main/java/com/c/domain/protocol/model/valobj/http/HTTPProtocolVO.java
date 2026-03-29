@@ -61,7 +61,7 @@ public class HTTPProtocolVO {
         private String mcpType;
 
         /** MCP字段描述信息，用于说明字段的业务含义、使用场景等说明性内容 */
-        private String mcpDesc;
+        private String mcpDescription;
 
         /** 是否必填字段，枚举值：0-非必填，1-必填，用于生成接口文档中的required校验数组 */
         @Builder.Default

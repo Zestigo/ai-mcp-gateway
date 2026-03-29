@@ -90,7 +90,7 @@ public class ParametersAnalysisStrategy extends AbstractProtocolAnalysisStrategy
                     .fieldName(name)
                     .mcpPath(name)
                     .mcpType(convertType(type))
-                    .mcpDesc(description)
+                    .mcpDescription(description)
                     .isRequired(required ? 1 : 0)
                     .sortOrder(mappings.size() + 1)
                     .build());

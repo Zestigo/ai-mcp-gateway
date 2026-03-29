@@ -179,6 +179,11 @@
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>3.26.0</version>
             </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>3.26.0</version>
+            </dependency>
 
             <!-- HTTP 调用框架 Retrofit -->
             <dependency>

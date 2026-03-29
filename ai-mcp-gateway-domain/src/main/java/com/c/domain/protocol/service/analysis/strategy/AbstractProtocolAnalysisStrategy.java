@@ -189,7 +189,7 @@ public abstract class AbstractProtocolAnalysisStrategy implements ProtocolAnalys
                 .fieldName(fieldName)
                 .mcpPath(mcpPath)
                 .mcpType(mcpType)
-                .mcpDesc(desc)
+                .mcpDescription(desc)
                 .isRequired(requiredList != null && requiredList.contains(fieldName) ? 1 : 0)
                 .sortOrder(mappings.size() + 1)
                 .build());

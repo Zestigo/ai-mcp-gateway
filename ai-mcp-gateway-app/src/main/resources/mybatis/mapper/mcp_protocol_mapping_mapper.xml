@@ -35,10 +35,28 @@
                 #{sortOrder}, NOW(), NOW())
     </insert>
 
+    <insert id="insertList" parameterType="java.util.List">
+        INSERT INTO mcp_protocol_mapping (protocol_id, mapping_type, parent_path, field_name,
+        mcp_path, mcp_type, mcp_description, is_required,
+        sort_order, create_time, update_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.protocolId}, #{item.mappingType}, #{item.parentPath}, #{item.fieldName},
+            #{item.mcpPath}, #{item.mcpType}, #{item.mcpDescription}, #{item.isRequired},
+            #{item.sortOrder}, NOW(), NOW())
+        </foreach>
+    </insert>
+
     <delete id="deleteById">
         DELETE
         FROM mcp_protocol_mapping
         WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByProtocolId" parameterType="java.lang.Long">
+        DELETE
+        FROM mcp_protocol_mapping
+        WHERE protocol_id = #{protocolId}
     </delete>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpProtocolMappingPO">
