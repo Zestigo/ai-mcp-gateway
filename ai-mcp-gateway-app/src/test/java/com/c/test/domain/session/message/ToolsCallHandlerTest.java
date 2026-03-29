@@ -1,78 +1,74 @@
 package com.c.test.domain.session.message;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.service.message.handler.impl.ToolsCallHandler;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import java.util.Map;
 
 /**
- * MCP工具调用处理器单元测试
- * 验证POST/GET请求调用、响应结果处理逻辑
+ * MCP 工具调用处理器单元测试
+ * 职责：验证基于 tools/call 协议的 POST/GET 请求转发与响应逻辑。
  */
 @Slf4j
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class ToolsCallHandlerTest {
 
-    /** 工具调用处理器 */
+    /** 工具调用处理器：负责将 MCP 请求路由至实际的 HTTP/RPC 接口 */
     @Resource
     private ToolsCallHandler toolsCallHandler;
 
-    /** JSON序列化工具 */
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     /**
-     * 测试POST类型工具调用
-     *
-     * @throws JsonProcessingException JSON解析异常
+     * 测试 POST 类型工具调用
+     * 场景：带有复杂嵌套对象的 POST 请求映射。
      */
     @Test
-    public void test_post() throws JsonProcessingException {
-        // 模拟工具调用请求参数
+    public void test_post_tools_call() {
+        // 1. 模拟标准的工具调用请求参数
         String jsonStr = """
-                {
-                  "name": "JavaSDKMCPClient_getCompanyEmployee",
-                  "arguments": {
-                    "xxxRequest01": {
-                      "city": "北京",
-                      "company": { "name": "jd", "type": "tech" }
+                                {
+                                  "name": "JavaSDKMCPClient_getCompanyEmployee",
+                                  "arguments": {
+                                    "xxxRequest01": {
+                                      "city": "北京",
+                                      "company": { "name": "jd", "type": "tech" }
+                                }
                     }
-                  }
                 }
                 """;
 
-        // 构建JSON-RPC请求对象
+        // 2. 构建 JSON-RPC 请求对象（使用 Fastjson2 解析为 Map）
         McpSchemaVO.JSONRPCRequest request = new McpSchemaVO.JSONRPCRequest("2.0", "tools/call", "req-post-001",
-                objectMapper.readValue(jsonStr, Map.class));
+                JSON.parseObject(jsonStr, Map.class));
 
-        // 执行请求处理
+        // 3. 执行请求处理并使用 StepVerifier 验证响应式流
         Flux<McpSchemaVO.JSONRPCResponse> responseFlux = toolsCallHandler.handle("gateway_001", request);
 
-        // 阻塞获取响应结果（单元测试必需）
-        McpSchemaVO.JSONRPCResponse result = responseFlux.blockFirst();
-
-        // 打印格式化响应结果
-        log.info("测试结果(post): \n{}", JSON.toJSONString(result, true));
+        StepVerifier
+                .create(responseFlux)
+                .assertNext(response -> {
+                    Assertions.assertNotNull(response);
+                    Assertions.assertNull(response.error(), "POST 请求不应返回错误");
+                    log.info("测试结果(post): \n{}", JSON.toJSONString(response, JSONWriter.Feature.PrettyFormat));
+                })
+                .verifyComplete();
     }
 
     /**
-     * 测试GET类型工具调用
-     *
-     * @throws JsonProcessingException JSON解析异常
+     * 测试 GET 类型工具调用
+     * 场景：简单 ID 查询的 GET 请求映射。
      */
     @Test
-    public void test_get() throws JsonProcessingException {
-        // 模拟工具调用请求参数
+    public void test_get_tools_call() {
+        // 1. 模拟查询参数
         String jsonStr = """
                 {
                   "name": "JavaSDKMCPClient_queryAiClientById",
@@ -82,17 +78,23 @@ public class ToolsCallHandlerTest {
                 }
                 """;
 
-        // 构建JSON-RPC请求对象并执行处理
-        Flux<McpSchemaVO.JSONRPCResponse> responseFlux = toolsCallHandler.handle("gateway_002",
-                new McpSchemaVO.JSONRPCRequest("2.0", "tools/call", "req-get-001", objectMapper.readValue(jsonStr,
-                        Map.class)));
+        // 2. 构建请求并执行
+        McpSchemaVO.JSONRPCRequest request = new McpSchemaVO.JSONRPCRequest("2.0", "tools/call", "req-get-001",
+                JSON.parseObject(jsonStr, Map.class));
 
-        // 阻塞获取响应结果
-        McpSchemaVO.JSONRPCResponse result = responseFlux.blockFirst();
+        Flux<McpSchemaVO.JSONRPCResponse> responseFlux = toolsCallHandler.handle("gateway_002", request);
 
-        // 打印并校验响应结果
-        log.info("测试结果(get): \n{}", JSON.toJSONString(result, true));
-        assert result != null;
-        assert result.error() == null;
+        // 3. 验证结果
+        StepVerifier
+                .create(responseFlux)
+                .assertNext(response -> {
+                    Assertions.assertNotNull(response);
+                    Assertions.assertNull(response.error(), "GET 请求不应返回错误");
+                    log.info("测试结果(get): \n{}", JSON.toJSONString(response, JSONWriter.Feature.PrettyFormat));
+
+                    // 额外逻辑校验：result 节点必须存在内容
+                    Assertions.assertNotNull(response.result(), "响应结果 Result 不能为空");
+                })
+                .verifyComplete();
     }
 }
