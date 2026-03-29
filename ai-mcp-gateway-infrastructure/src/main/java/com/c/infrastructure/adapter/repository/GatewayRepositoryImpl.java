@@ -1,167 +1,178 @@
 package com.c.infrastructure.adapter.repository;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
-import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
-import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
-import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
-import com.c.infrastructure.dao.*;
+import com.c.domain.gateway.adapter.repository.GatewayRepository;
+import com.c.domain.gateway.model.entity.GatewayConfigCommandEntity;
+import com.c.domain.gateway.model.entity.GatewayToolConfigCommandEntity;
+import com.c.domain.gateway.model.valobj.GatewayConfigVO;
+import com.c.domain.gateway.model.valobj.GatewayToolConfigVO;
+import com.c.infrastructure.dao.McpGatewayDao;
+import com.c.infrastructure.dao.McpGatewayToolDao;
 import com.c.infrastructure.dao.po.McpGatewayPO;
 import com.c.infrastructure.dao.po.McpGatewayToolPO;
-import com.c.infrastructure.dao.po.McpProtocolHttpPO;
-import com.c.infrastructure.dao.po.McpProtocolMappingPO;
-import lombok.RequiredArgsConstructor;
+import com.c.types.enums.GatewayEnum;
+import com.c.types.exception.AppException;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import static com.c.types.enums.ResponseCode.DB_UPDATE_FAIL;
 
 /**
- * 网关配置仓储实现类
- * 聚合多表数据，提供网关、工具、协议、HTTP配置的统一查询能力
- * 实现数据库PO到领域VO的转换，屏蔽数据层细节
+ * 网关配置仓储层实现
+ * 提供网关基础配置、工具配置、鉴权状态、协议信息的持久化与更新能力
+ * 采用先查询后操作模式保证事务安全，增强空值防御
+ *
+ * @author cyh
+ * @date 2026/03/29
  */
-@Repository
-@RequiredArgsConstructor
 @Slf4j
+@Repository
 public class GatewayRepositoryImpl implements GatewayRepository {
 
-    /** 网关基础配置DAO */
-    private final McpGatewayDao mcpGatewayDao;
+    /** 网关基础配置数据访问对象 */
+    @Resource
+    private McpGatewayDao mcpGatewayDao;
 
-    /** 网关工具配置DAO */
-    private final McpGatewayToolDao mcpGatewayToolDao;
-
-    /** 协议字段映射DAO */
-    private final McpProtocolMappingDao mcpProtocolMappingDao;
-
-    /** 网关授权配置DAO */
-    private final McpGatewayAuthDao mcpGatewayAuthDao;
-
-    /** HTTP协议配置DAO */
-    private final McpProtocolHttpDao mcpProtocolHttpDao;
+    /** 网关工具配置数据访问对象 */
+    @Resource
+    private McpGatewayToolDao mcpGatewayToolDao;
 
     /**
-     * 根据网关ID查询网关基础配置
+     * 保存网关配置，存在则更新，不存在则新增
      *
-     * @param gatewayId 网关唯一标识
-     * @return 网关基础配置VO，无数据返回null
+     * @param commandEntity 网关配置操作命令实体
      */
     @Override
-    public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
-        // 根据网关ID查询数据库配置
-        McpGatewayPO gatewayPO = mcpGatewayDao.queryMcpGatewayByGatewayId(gatewayId);
-        // 配置为空时打印警告并返回
-        if (gatewayPO == null) {
-            log.warn("未找到有效的网关配置, gatewayId: {}", gatewayId);
-            return null;
+    @Transactional(rollbackFor = Exception.class)
+    public void saveGatewayConfig(GatewayConfigCommandEntity commandEntity) {
+        // 获取网关配置视图对象，为空直接返回
+        GatewayConfigVO vo = commandEntity.getGatewayConfigVO();
+        if (null == vo) return;
+
+        // 构建持久化对象，赋值基础属性
+        McpGatewayPO po = McpGatewayPO
+                .builder()
+                .gatewayId(vo.getGatewayId())
+                .gatewayName(vo.getGatewayName())
+                .gatewayDescription(vo.getGatewayDescription())
+                .gatewayVersion(vo.getGatewayVersion())
+                .build();
+        // 鉴权状态为空则使用默认启用状态
+        po.setAuth(null != vo.getAuth() ? vo
+                .getAuth()
+                .getCode() : GatewayEnum.GatewayAuthStatusEnum.ENABLE.getCode());
+        // 网关状态为空则使用默认未核验状态
+        po.setStatus(null != vo.getStatus() ? vo
+                .getStatus()
+                .getCode() : GatewayEnum.GatewayStatus.NOT_VERIFIED.getCode());
+
+        // 先查询是否存在，避免SQL异常导致事务失效
+        McpGatewayPO existPo = mcpGatewayDao.queryByGatewayId(vo.getGatewayId());
+        if (null == existPo) {
+            // 不存在执行新增
+            mcpGatewayDao.insert(po);
+            log.info("[仓储层] 新增网关配置成功: {}", vo.getGatewayId());
+        } else {
+            // 已存在执行覆盖更新
+            mcpGatewayDao.updateByGatewayId(po);
+            log.info("[仓储层] 更新网关配置成功: {}", vo.getGatewayId());
         }
-        // 转换为领域层VO对象返回
-        return McpGatewayConfigVO
-                .builder()
-                .gatewayId(gatewayPO.getGatewayId())
-                .gatewayName(gatewayPO.getGatewayName())
-                .gatewayDescription(gatewayPO.getGatewayDescription())
-                .gatewayVersion(gatewayPO.getGatewayVersion())
-                .status(gatewayPO.getStatus())
-                .build();
     }
 
     /**
-     * 根据网关ID查询工具配置列表
+     * 更新网关鉴权状态
      *
-     * @param gatewayId 网关唯一标识
-     * @return 工具配置列表，无数据返回空集合
+     * @param commandEntity 网关配置操作命令实体
+     * @throws AppException 数据库更新失败时抛出
      */
     @Override
-    public List<McpToolConfigVO> queryMcpGatewayToolConfigListByGatewayId(String gatewayId) {
-        // 获取网关下所有有效工具配置
-        List<McpGatewayToolPO> toolPOList = mcpGatewayToolDao.queryEffectiveTools(gatewayId);
-        // 无工具数据直接返回空集合
-        if (toolPOList.isEmpty()) return new ArrayList<>();
+    @Transactional(rollbackFor = Exception.class)
+    public void updateGatewayAuthStatus(GatewayConfigCommandEntity commandEntity) {
+        // 获取配置并校验非空
+        GatewayConfigVO vo = commandEntity.getGatewayConfigVO();
+        if (null == vo || null == vo.getAuth()) return;
 
-        // 提取协议ID集合，用于批量查询映射配置（优化N+1查询）
-        List<Long> protocolIds = toolPOList
-                .stream()
-                .map(McpGatewayToolPO::getProtocolId)
-                .distinct()
-                .toList();
+        // 构建仅包含鉴权状态的更新对象
+        McpGatewayPO po = new McpGatewayPO();
+        po.setGatewayId(vo.getGatewayId());
+        po.setAuth(vo
+                .getAuth()
+                .getCode());
 
-        // 批量查询所有协议对应的字段映射配置
-        List<McpProtocolMappingPO> allMappings = mcpProtocolMappingDao.queryByProtocolIds(protocolIds);
-
-        // 将映射配置按协议ID分组，方便后续工具匹配
-        Map<Long, List<McpToolProtocolConfigVO.ProtocolMapping>> mappingGroup = allMappings
-                .stream()
-                .collect(Collectors.groupingBy(McpProtocolMappingPO::getProtocolId,
-                        Collectors.mapping(po -> McpToolProtocolConfigVO.ProtocolMapping
-                                .builder()
-                                .mappingType(po.getMappingType())
-                                .parentPath(po.getParentPath())
-                                .fieldName(po.getFieldName())
-                                .mcpPath(po.getMcpPath())
-                                .mcpType(po.getMcpType())
-                                .McpDescription(po.getMcpDescription())
-                                .isRequired(po.getIsRequired())
-                                .sortOrder(po.getSortOrder())
-                                .build(), Collectors.toList())));
-
-        // 组装工具配置与协议映射，返回最终结果
-        return toolPOList
-                .stream()
-                .map(tool -> McpToolConfigVO
-                        .builder()
-                        .gatewayId(tool.getGatewayId())
-                        .toolId(tool.getToolId())
-                        .toolName(tool.getToolName())
-                        .toolDescription(tool.getToolDescription())
-                        .toolVersion(tool.getToolVersion())
-                        .mcpToolProtocolConfigVO(McpToolProtocolConfigVO
-                                .builder()
-                                .requestProtocolMappings(mappingGroup.getOrDefault(tool.getProtocolId(),
-                                        new ArrayList<>()))
-                                .build())
-                        .build())
-                .toList();
+        // 执行更新并校验影响行数
+        int count = mcpGatewayDao.updateAuthStatusByGatewayId(po);
+        if (count < 1) {
+            log.error("[仓储层] 更新网关鉴权状态失败, gatewayId: {}", vo.getGatewayId());
+            throw new AppException(DB_UPDATE_FAIL.getCode(), DB_UPDATE_FAIL.getInfo());
+        }
     }
 
     /**
-     * 根据网关ID和工具名称查询协议调用配置
+     * 保存网关工具配置，存在则更新，不存在则新增
      *
-     * @param gatewayId 网关唯一标识
-     * @param toolName  工具名称
-     * @return 工具协议配置VO，无数据返回null
+     * @param commandEntity 网关工具配置操作命令实体
      */
     @Override
-    public McpToolProtocolConfigVO queryMcpGatewayProtocolConfig(String gatewayId, String toolName) {
-        // 构建查询参数
-        McpGatewayToolPO mcpGatewayToolPOReq = McpGatewayToolPO
+    @Transactional(rollbackFor = Exception.class)
+    public void saveGatewayToolConfig(GatewayToolConfigCommandEntity commandEntity) {
+        // 获取工具配置视图对象，为空直接返回
+        GatewayToolConfigVO vo = commandEntity.getGatewayToolConfigVO();
+        if (null == vo) return;
+
+        // 构建工具配置持久化对象
+        McpGatewayToolPO po = McpGatewayToolPO
                 .builder()
-                .gatewayId(gatewayId)
-                .toolName(toolName)
+                .gatewayId(vo.getGatewayId())
+                .toolId(vo.getToolId())
+                .toolName(vo.getToolName())
+                .toolType(vo.getToolType())
+                .toolDescription(vo.getToolDescription())
+                .toolVersion(vo.getToolVersion())
+                .protocolId(vo.getProtocolId())
+                .protocolType(vo.getProtocolType())
                 .build();
 
-        // 查询对应的协议ID
-        Long protocolId = mcpGatewayToolDao.queryToolProtocolIdByToolName(mcpGatewayToolPOReq);
-        if (protocolId == null) return null;
-
-        // 根据协议ID查询HTTP配置信息
-        McpProtocolHttpPO httpPO = mcpProtocolHttpDao.queryMcpProtocolHttpByProtocolId(protocolId);
-        if (httpPO == null) return null;
-
-        // 构建并返回协议配置对象
-        return McpToolProtocolConfigVO
-                .builder()
-                .httpConfig(McpToolProtocolConfigVO.HTTPConfig
-                        .builder()
-                        .httpUrl(httpPO.getHttpUrl())
-                        .httpHeaders(httpPO.getHttpHeaders())
-                        .httpMethod(httpPO.getHttpMethod())
-                        .timeout(httpPO.getTimeout())
-                        .build())
-                .build();
+        // 查询是否已存在工具配置
+        McpGatewayToolPO existTool = mcpGatewayToolDao.queryToolConfig(po);
+        if (null == existTool) {
+            // 不存在执行新增
+            mcpGatewayToolDao.insert(po);
+            log.info("[仓储层] 新增工具配置成功: {}:{}", vo.getGatewayId(), vo.getToolId());
+        } else {
+            // 已存在执行更新
+            mcpGatewayToolDao.updateToolConfig(po);
+            log.info("[仓储层] 更新工具配置成功: {}:{}", vo.getGatewayId(), vo.getToolId());
+        }
     }
 
+    /**
+     * 更新网关工具协议配置
+     *
+     * @param commandEntity 网关工具配置操作命令实体
+     * @throws AppException 数据库更新失败时抛出
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateGatewayToolProtocol(GatewayToolConfigCommandEntity commandEntity) {
+        // 获取配置并校验非空
+        GatewayToolConfigVO vo = commandEntity.getGatewayToolConfigVO();
+        if (null == vo || null == vo.getToolId()) return;
+
+        // 构建协议更新对象
+        McpGatewayToolPO po = McpGatewayToolPO
+                .builder()
+                .gatewayId(vo.getGatewayId())
+                .toolId(vo.getToolId())
+                .protocolId(vo.getProtocolId())
+                .protocolType(vo.getProtocolType())
+                .build();
+
+        // 执行更新并校验结果
+        int count = mcpGatewayToolDao.updateProtocolByGatewayId(po);
+        if (count < 1) {
+            log.error("[仓储层] 更新工具协议失败, toolId: {}", vo.getToolId());
+            throw new AppException(DB_UPDATE_FAIL.getCode(), DB_UPDATE_FAIL.getInfo());
+        }
+    }
 }

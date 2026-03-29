@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
@@ -27,8 +27,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class RootsListHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /**
      * 处理MCP根路径查询请求
@@ -46,7 +46,7 @@ public class RootsListHandler implements IRequestHandler {
 
         // 查询并校验网关基础配置信息
         McpGatewayConfigVO config = Optional
-                .ofNullable(gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
+                .ofNullable(sessionRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
                 .orElseThrow(() -> new AppException("MCP-404", "网关配置不存在或已禁用: " + gatewayId));
 
         // 构建MCP协议标准根路径信息

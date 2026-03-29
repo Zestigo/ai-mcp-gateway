@@ -7,10 +7,10 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MCP 会话数据库访问接口
+ * MCP会话数据库访问接口
  *
  * @author cyh
- * @date 2026/03/27
+ * @date 2026/03/29
  */
 @Mapper
 public interface McpSessionDao {
@@ -72,4 +72,11 @@ public interface McpSessionDao {
      * @return 列表
      */
     List<McpSessionPO> selectByGatewayId(@Param("gatewayId") String gatewayId);
+
+    /**
+     * 统计会话总数量
+     *
+     * @return 会话总数
+     */
+    long countAll();
 }

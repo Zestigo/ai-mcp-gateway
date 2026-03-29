@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpGatewayConfigVO;
 import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
@@ -29,8 +29,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class InitializeHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /**
      * 处理MCP初始化请求
@@ -58,11 +58,11 @@ public class InitializeHandler implements IRequestHandler {
 
         // 查询并校验网关基础配置信息
         McpGatewayConfigVO config = Optional
-                .ofNullable(gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
+                .ofNullable(sessionRepository.queryMcpGatewayConfigByGatewayId(gatewayId))
                 .orElseThrow(() -> new AppException("MCP-404", "网关未授权或不存在: " + gatewayId));
 
         // 查询网关下可用工具配置
-        List<McpToolConfigVO> tools = gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+        List<McpToolConfigVO> tools = sessionRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
         if (tools == null || tools.isEmpty()) {
             log.warn("MCP_INIT_WARNING | gatewayId={} | 原因: 当前网关未配置任何可用工具(Tools为空)", gatewayId);
         }

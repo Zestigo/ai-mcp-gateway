@@ -1,7 +1,7 @@
 package com.c.domain.session.service.message.handler.impl;
 
 import com.c.domain.session.adapter.port.SessionPort;
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
@@ -32,8 +32,8 @@ import static com.c.domain.session.model.valobj.McpSchemaVO.ErrorCodes.INTERNAL_
 @RequiredArgsConstructor
 public class ToolsCallHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /** 会话服务端口，执行实际接口调用 */
     private final SessionPort sessionPort;
@@ -65,7 +65,7 @@ public class ToolsCallHandler implements IRequestHandler {
 
                        // 根据网关ID与工具名称查询协议配置
                        McpToolProtocolConfigVO protocolConfig =
-                               gatewayRepository.queryMcpGatewayProtocolConfig(gatewayId, callToolRequest.name());
+                               sessionRepository.queryMcpGatewayProtocolConfig(gatewayId, callToolRequest.name());
 
                        // 校验协议配置是否存在
                        if (protocolConfig == null || protocolConfig.getHttpConfig() == null) {
@@ -88,7 +88,8 @@ public class ToolsCallHandler implements IRequestHandler {
                    .onErrorResume(e -> {
                        // 统一异常处理，记录日志并返回标准错误响应
                        log.error("MCP_CALL_FAILED | gatewayId={} | error={}", gatewayId, e.getMessage(), e);
-                       int errorCode = (e instanceof AppException ae) ? safeParseInt(ae.getCode(), INTERNAL_ERROR) : INTERNAL_ERROR;
+                       int errorCode = (e instanceof AppException ae) ? safeParseInt(ae.getCode(), INTERNAL_ERROR) :
+                               INTERNAL_ERROR;
                        return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), errorCode, e.getMessage(), null));
                    })
                    // 转换为Flux类型以适配接口返回值

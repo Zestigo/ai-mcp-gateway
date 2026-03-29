@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
@@ -26,8 +26,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ResourcesReadHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /**
      * 处理MCP资源读取请求
@@ -63,7 +63,7 @@ public class ResourcesReadHandler implements IRequestHandler {
         }
 
         // 查询网关下所有工具配置
-        List<McpToolConfigVO> toolConfigs = gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+        List<McpToolConfigVO> toolConfigs = sessionRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
 
         // 匹配目标工具信息
         McpToolConfigVO targetTool = toolConfigs

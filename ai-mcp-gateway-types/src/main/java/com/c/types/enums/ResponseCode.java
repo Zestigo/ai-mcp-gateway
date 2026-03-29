@@ -33,7 +33,8 @@ public enum ResponseCode {
     /** 数据不存在 / 网关配置未找到 */
     DATA_NOT_FOUND("0005", "数据不存在或配置未找到"),
     /** 枚举数据不存在 */
-    ENUM_NOT_FOUND("0006", "数据不存在或配置未找到");
+    ENUM_NOT_FOUND("0006", "数据不存在或配置未找到"),
+    DB_UPDATE_FAIL("0007", "数据库更新失败");
 
     /** 响应状态码 */
     private final String code;

@@ -57,7 +57,7 @@ public class McpToolProtocolConfigVO {
         /** MCP数据类型 */
         private String mcpType;
         /** 字段描述 */
-        private String McpDescription;
+        private String mcpDescription;
         /** 是否必填 */
         private Integer isRequired;
         /** 排序序号 */

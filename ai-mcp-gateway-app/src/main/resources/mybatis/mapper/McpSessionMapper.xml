@@ -20,11 +20,9 @@
     </sql>
 
     <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpSessionPO">
-        INSERT INTO mcp_session (session_id, gateway_id, host_ip,
-                                 active, -- 去掉 if 判断，强制插入
+        INSERT INTO mcp_session (session_id, gateway_id, host_ip, active,
                                  timeout_seconds, last_access_time, create_time, update_time)
-        VALUES (#{sessionId}, #{gatewayId}, #{hostIp},
-                COALESCE(#{active}, 1), -- 如果 active 为 null，则设为 1
+        VALUES (#{sessionId}, #{gatewayId}, #{hostIp}, COALESCE(#{active}, 1),
                 #{timeoutSeconds}, #{lastAccessTime}, NOW(), NOW())
     </insert>
 
@@ -40,24 +38,16 @@
         SELECT
         <include refid="base_columns"/>
         FROM mcp_session
-        <where>
-            <if test="gatewayId != null">
-                AND gateway_id = #{gatewayId}
-            </if>
-            AND active = 1
-        </where>
+        WHERE gateway_id = #{gatewayId}
+        ORDER BY last_access_time DESC
     </select>
 
     <select id="selectByHostIp" resultMap="McpSessionMap">
         SELECT
         <include refid="base_columns"/>
         FROM mcp_session
-        <where>
-            <if test="hostIp != null and hostIp != ''">
-                AND host_ip = #{hostIp}
-            </if>
-            AND active = 1
-        </where>
+        WHERE host_ip = #{hostIp}
+        AND active = 1
     </select>
 
     <update id="update" parameterType="com.c.infrastructure.dao.po.McpSessionPO">
@@ -89,6 +79,7 @@
         SELECT
         <include refid="base_columns"/>
         FROM mcp_session
+        ORDER BY create_time DESC
     </select>
 
     <delete id="deleteExpiredSessions">
@@ -101,5 +92,10 @@
                 AND last_access_time <![CDATA[ < ]]> DATE_SUB(NOW(), INTERVAL timeout_seconds SECOND)
             )
     </delete>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(1)
+        FROM mcp_session
+    </select>
 
 </mapper>

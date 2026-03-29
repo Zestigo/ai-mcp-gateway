@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
 import com.c.domain.session.service.message.handler.IRequestHandler;
@@ -20,15 +20,15 @@ import java.util.stream.Collectors;
  * 处理resources/list类型请求，将网关下的工具转换为标准MCP资源列表返回
  *
  * @author cyh
- * @date 2026/03/26
+ * @date 2026/03/29
  */
 @Slf4j
 @Service("resourcesListHandler")
 @RequiredArgsConstructor
 public class ResourcesListHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /**
      * 处理MCP资源列表查询请求
@@ -47,7 +47,7 @@ public class ResourcesListHandler implements IRequestHandler {
         log.info("resources/list | gatewayId={}", gatewayId);
 
         // 查询当前网关下所有工具配置信息
-        List<McpToolConfigVO> toolConfigs = gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+        List<McpToolConfigVO> toolConfigs = sessionRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
 
         // 将工具配置转换为MCP协议标准资源格式
         List<Map<String, Object>> resources = toolConfigs

@@ -26,41 +26,41 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 认证授权仓储层实现类
- * 采用本地缓存+Redis+MySQL三级缓存架构，实现高性能、高并发、防穿透的认证数据查询与持久化
- * 包含限流、缓存维护、数据转换、异常防护等基础设施能力
+ * 认证授权仓储层实现
+ * 提供API密钥校验、限流控制、授权信息缓存与持久化能力
+ * 采用本地缓存+Redis+数据库三级缓存架构
  *
  * @author cyh
- * @date 2026/03/27
+ * @date 2026/03/29
  */
 @Slf4j
 @Repository
 public class AuthRepositoryImpl implements AuthRepository {
 
-    /** 网关授权信息数据库访问对象 */
+    /** 网关授权配置数据访问对象 */
     @Resource
     private McpGatewayAuthDao mcpGatewayAuthDao;
 
-    /** 网关基础配置信息数据库访问对象 */
+    /** 网关基础配置数据访问对象 */
     @Resource
     private McpGatewayDao mcpGatewayDao;
 
-    /** 分布式限流原子操作Lua脚本 */
+    /** 限流Lua脚本 */
     @Resource
     private DefaultRedisScript<Long> ratelimitLuaScript;
 
-    /** 聚合认证对象Redis序列化操作模板 */
+    /** 对象Redis模板 */
     @Resource
     private RedisTemplate<String, McpGatewayCompositeVO> redisTemplate;
 
-    /** 字符串类型Redis操作模板，用于限流计数 */
+    /** 字符串Redis模板 */
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
-    /** 缓存穿透专用空对象，避免重复创建降低GC压力 */
+    /** 空值缓存对象，用于缓存穿透防护 */
     private static final McpGatewayCompositeVO NULL_VO = new McpGatewayCompositeVO();
 
-    /** L1本地缓存：5秒过期、高并发等级，承载瞬时流量减轻Redis压力 */
+    /** 本地缓存：一级缓存，降低Redis与数据库访问压力 */
     private static final Cache<String, McpGatewayCompositeVO> localCache = CacheBuilder
             .newBuilder()
             .concurrencyLevel(Runtime
@@ -72,80 +72,75 @@ public class AuthRepositoryImpl implements AuthRepository {
             .build();
 
     /**
-     * 执行API密钥分布式限流校验
-     * 通过Lua脚本保证原子性，异常时采用fail-open策略兜底放行不阻断业务
+     * 校验网关是否触发限流
      *
      * @param gatewayId     网关唯一标识
-     * @param apiKey        API访问密钥
-     * @param limit         单位时间窗口内最大允许访问次数
-     * @param windowSeconds 限流时间窗口大小（秒）
-     * @return true=触发限流拦截，false=正常放行
+     * @param apiKey        API密钥
+     * @param limit         限流阈值
+     * @param windowSeconds 时间窗口
+     * @return true-已限流，false-未限流
      */
     @Override
     public boolean isRateLimited(String gatewayId, String apiKey, int limit, int windowSeconds) {
-        // 构建统一规范的限流Redis键
         String limitKey = RedisKeyConstants.buildRateLimitKey(gatewayId, apiKey);
         try {
-            // 执行Lua脚本实现原子限流计数，返回0表示超限，1表示正常
+            // 执行Lua脚本实现限流
             Long result = stringRedisTemplate.execute(ratelimitLuaScript, Collections.singletonList(limitKey),
                     String.valueOf(limit), String.valueOf(windowSeconds));
             return result == 0;
         } catch (Exception e) {
-            // 限流服务异常时记录日志并兜底放行，避免基础组件异常影响核心业务
-            log.error("[分布式限流异常] 触发Fail-open兜底放行, Gateway: {}, Reason: {}", gatewayId, e.getMessage());
+            log.error("[限流异常] Fail-open兜底放行, Gateway: {}, Reason: {}", gatewayId, e.getMessage());
+            // 异常时放行，保证服务可用性
             return false;
         }
     }
 
     /**
-     * 三级缓存架构聚合查询网关全量认证信息
-     * 优先本地缓存→其次Redis缓存→最终数据库回源，自带缓存穿透防护
+     * 异步查询网关综合授权信息
+     * 采用三级缓存：本地缓存->Redis->数据库
      *
      * @param gatewayId 网关唯一标识
-     * @param apiKey    API访问密钥
-     * @return 响应式返回聚合认证信息对象
+     * @param apiKey    API密钥
+     * @return 授权信息视图对象
      */
     @Override
     public Mono<McpGatewayCompositeVO> queryCompositeAuth(String gatewayId, String apiKey) {
-        // 构建Redis缓存键与本地缓存业务键
         String redisKey = RedisKeyConstants.buildAuthKey(gatewayId, apiKey);
         String bizKey = gatewayId + ":" + apiKey;
 
-        // 第一步：查询L1本地缓存，命中则直接返回结果
+        // 优先查询本地缓存
         McpGatewayCompositeVO cacheVo = localCache.getIfPresent(bizKey);
         if (cacheVo != null) {
-            // 空对象代表缓存穿透标记，返回空Mono；正常对象直接返回
             return cacheVo == NULL_VO ? Mono.empty() : Mono.just(cacheVo);
         }
 
-        // 本地缓存未命中，异步调度线程池查询Redis与数据库
+        // 异步查询Redis和数据库
         return Mono
                 .fromCallable(() -> {
                     try {
-                        // 第二步：查询L2 Redis分布式缓存
+                        // 查询Redis缓存
                         McpGatewayCompositeVO redisVo = redisTemplate
                                 .opsForValue()
                                 .get(redisKey);
                         if (redisVo != null) {
-                            // Redis命中，回写本地缓存提升后续查询性能
                             localCache.put(bizKey, redisVo);
                             return redisVo;
                         }
 
-                        // 第三步：Redis未命中，回源L3 MySQL数据库查询
+                        // 查询数据库
                         McpGatewayCompositePO po =
                                 mcpGatewayAuthDao.queryCompositeAuth(new McpGatewayCompositePO(gatewayId, apiKey));
                         if (po != null) {
-                            // 数据库数据转换为领域值对象
+                            // 转换为视图对象
                             McpGatewayCompositeVO vo = convertToVO(po);
-                            // 写入Redis缓存（30分钟过期）与本地缓存
+                            // 写入两级缓存
                             redisTemplate
                                     .opsForValue()
                                     .set(redisKey, vo, 30, TimeUnit.MINUTES);
                             localCache.put(bizKey, vo);
                             return vo;
                         } else {
-                            // 数据库无数据，执行缓存穿透防护：写入空对象标记（1分钟过期）
+                            // 空值缓存，防止穿透
                             redisTemplate
                                     .opsForValue()
                                     .set(redisKey, NULL_VO, 1, TimeUnit.MINUTES);
@@ -153,8 +148,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                             return NULL_VO;
                         }
                     } catch (Exception e) {
-                        // 缓存/数据库异常时记录日志，返回空对象防止数据库击穿
-                        log.error("[缓存回源异常] Gateway: {}, Reason: {}", gatewayId, e.getMessage());
+                        log.error("[仓储回源异常] Gateway: {}, Reason: {}", gatewayId, e.getMessage());
                         return NULL_VO;
                     }
                 })
@@ -163,14 +157,14 @@ public class AuthRepositoryImpl implements AuthRepository {
     }
 
     /**
-     * 持久化网关授权信息
-     * 数据插入后主动清理两级缓存，保证数据一致性
+     * 插入网关授权信息
+     * 插入后清除缓存保证一致性
      *
-     * @param vo 网关授权领域值对象
+     * @param vo 网关授权视图对象
      */
     @Override
     public void insert(McpGatewayAuthVO vo) {
-        // 值对象转换为数据库持久化对象
+        // 转换为持久化对象
         McpGatewayAuthPO po = McpGatewayAuthPO
                 .builder()
                 .gatewayId(vo.getGatewayId())
@@ -182,22 +176,22 @@ public class AuthRepositoryImpl implements AuthRepository {
                         .getCode())
                 .build();
 
-        // 执行数据库插入操作
+        // 执行插入
         mcpGatewayAuthDao.insert(po);
 
-        // Cache Aside模式：数据更新后主动清理Redis与本地缓存
+        // 清除缓存，保证数据一致性
         String redisKey = RedisKeyConstants.buildAuthKey(vo.getGatewayId(), vo.getApiKey());
+        String bizKey = vo.getGatewayId() + ":" + vo.getApiKey();
         redisTemplate.delete(redisKey);
-        localCache.invalidate(vo.getGatewayId() + ":" + vo.getApiKey());
-        log.info("[仓储持久化] 网关授权已更新并清理缓存: {}", vo.getGatewayId());
+        localCache.invalidate(bizKey);
+        log.info("[仓储持久化] 授权信息更新，已同步失效缓存: {}", bizKey);
     }
 
     /**
-     * 查询网关下有效授权记录数量
-     * 用于注册防重校验
+     * 查询网关有效授权数量
      *
      * @param gatewayId 网关唯一标识
-     * @return 有效授权记录条数
+     * @return 有效授权数量
      */
     @Override
     public int queryEffectiveGatewayAuthCount(String gatewayId) {
@@ -205,14 +199,14 @@ public class AuthRepositoryImpl implements AuthRepository {
     }
 
     /**
-     * 查询网关有效授权配置信息
+     * 查询网关有效授权信息
      *
-     * @param commandEntity 证书校验命令实体
-     * @return 网关授权值对象，无数据返回null
+     * @param commandEntity 授权查询命令实体
+     * @return 授权信息视图对象
      */
     @Override
     public McpGatewayAuthVO queryEffectiveGatewayAuthInfo(LicenseCommandEntity commandEntity) {
-        // 构建查询参数对象
+        // 查询授权持久化对象
         McpGatewayAuthPO po = mcpGatewayAuthDao.queryMcpGatewayAuthPO(McpGatewayAuthPO
                 .builder()
                 .gatewayId(commandEntity.getGatewayId())
@@ -220,7 +214,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 .build());
         if (null == po) return null;
 
-        // 数据库对象转换为领域值对象返回
+        // 转换为视图对象
         return McpGatewayAuthVO
                 .builder()
                 .gatewayId(po.getGatewayId())
@@ -232,24 +226,23 @@ public class AuthRepositoryImpl implements AuthRepository {
     }
 
     /**
-     * 查询网关全局鉴权开关配置
+     * 查询网关鉴权状态
      *
      * @param gatewayId 网关唯一标识
-     * @return 网关鉴权配置枚举
+     * @return 网关鉴权状态枚举
      */
     @Override
     public AuthStatusEnum.GatewayConfig queryGatewayAuthStatus(String gatewayId) {
-        McpGatewayPO po = mcpGatewayDao.queryMcpGatewayByGatewayId(gatewayId);
-        // 无网关配置时默认返回强校验模式
+        McpGatewayPO po = mcpGatewayDao.queryByGatewayId(gatewayId);
         return (po == null) ? AuthStatusEnum.GatewayConfig.STRONG_VERIFIED :
                 AuthStatusEnum.GatewayConfig.get(po.getAuth());
     }
 
     /**
-     * 数据库持久化对象转换为领域聚合值对象
+     * 持久化对象转换为视图对象
      *
-     * @param po 数据库查询结果对象
-     * @return 领域层聚合认证值对象
+     * @param po 综合授权持久化对象
+     * @return 综合授权视图对象
      */
     private McpGatewayCompositeVO convertToVO(McpGatewayCompositePO po) {
         return McpGatewayCompositeVO

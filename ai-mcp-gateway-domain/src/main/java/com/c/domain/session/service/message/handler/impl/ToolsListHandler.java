@@ -1,6 +1,6 @@
 package com.c.domain.session.service.message.handler.impl;
 
-import com.c.domain.session.adapter.repository.GatewayRepository;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.valobj.McpSchemaVO;
 import com.c.domain.session.model.valobj.gateway.McpToolConfigVO;
 import com.c.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
@@ -31,8 +31,8 @@ import static com.c.domain.session.model.valobj.McpSchemaVO.ErrorCodes.INTERNAL_
 @RequiredArgsConstructor
 public class ToolsListHandler implements IRequestHandler {
 
-    /** 网关配置仓储 */
-    private final GatewayRepository gatewayRepository;
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    private final SessionRepository sessionRepository;
 
     /**
      * 处理MCP工具列表查询请求
@@ -51,7 +51,7 @@ public class ToolsListHandler implements IRequestHandler {
         return Mono.fromCallable(() -> {
                        // 查询网关下所有工具配置信息
                        List<McpToolConfigVO> toolConfigs =
-                               gatewayRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
+                               sessionRepository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
 
                        // 无工具数据时返回空列表
                        if (toolConfigs == null || toolConfigs.isEmpty()) {
@@ -83,7 +83,8 @@ public class ToolsListHandler implements IRequestHandler {
                    // 统一异常处理
                    .onErrorResume(e -> {
                        log.error("MCP_TOOLS_LIST_ERROR | gatewayId={}", gatewayId, e);
-                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), INTERNAL_ERROR, e.getMessage(), null));
+                       return Mono.just(McpSchemaVO.JSONRPCResponse.ofError(req.id(), INTERNAL_ERROR, e.getMessage(),
+                               null));
                    })
                    .flux();
     }

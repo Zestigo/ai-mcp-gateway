@@ -21,14 +21,37 @@
     </sql>
 
     <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_description, gateway_version, status, auth, create_time, update_time)
-        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDescription}, #{gatewayVersion},
-                #{status}, #{auth}, NOW(), NOW())
+        INSERT INTO mcp_gateway (gateway_id, gateway_name, gateway_description,
+                                 gateway_version, status, auth, create_time, update_time)
+        VALUES (#{gatewayId}, #{gatewayName}, #{gatewayDescription},
+                #{gatewayVersion}, #{status}, #{auth}, NOW(), NOW())
     </insert>
 
-    <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE FROM mcp_gateway WHERE id = #{id}
-    </delete>
+    <update id="updateByGatewayId" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
+        UPDATE mcp_gateway
+        SET gateway_name        = #{gatewayName},
+            gateway_description = #{gatewayDescription},
+            gateway_version     = #{gatewayVersion},
+            status              = #{status},
+            auth                = #{auth},
+            update_time         = NOW()
+        WHERE gateway_id = #{gatewayId}
+    </update>
+
+    <update id="updateAuthStatusByGatewayId" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
+        UPDATE mcp_gateway
+        SET auth        = #{auth},
+            update_time = NOW()
+        WHERE gateway_id = #{gatewayId}
+    </update>
+
+    <select id="queryByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway
+        WHERE gateway_id = #{gatewayId}
+        LIMIT 1
+    </select>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
         UPDATE mcp_gateway
@@ -44,19 +67,28 @@
         WHERE id = #{id}
     </update>
 
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE
+        FROM mcp_gateway
+        WHERE id = #{id}
+    </delete>
+
     <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/> FROM mcp_gateway WHERE id = #{id}
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway WHERE id = #{id}
     </select>
 
     <select id="queryAll" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/> FROM mcp_gateway
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway
+        ORDER BY create_time DESC
     </select>
 
-    <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String" resultMap="mcpGatewayMap">
-        SELECT <include refid="all_columns"/>
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*)
         FROM mcp_gateway
-        WHERE gateway_id = #{gatewayId}
-        AND status = 1
     </select>
 
 </mapper>

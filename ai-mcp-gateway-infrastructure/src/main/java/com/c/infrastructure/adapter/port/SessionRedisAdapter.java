@@ -14,34 +14,49 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 会话 Redis 存储适配器
- * 职责：实现领域层定义的 Redis 端口，负责会话关系维护及跨节点消息广播。
+ * 会话Redis存储适配器
+ * 实现领域层定义的Redis端口，负责会话关系维护及跨节点消息广播
+ *
+ * @author cyh
+ * @date 2026/03/29
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionRedisAdapter implements SessionRedisPort {
 
-    /** Redis 订阅主题前缀：用于跨机器节点消息推送 */
+    /** Redis订阅主题前缀：用于跨机器节点消息推送 */
     private static final String MCP_TOPIC_PREFIX = "mcp_node_";
 
-    /** Redis 业务键前缀：标识网关与会话映射关系 */
+    /** Redis业务键前缀：标识网关与会话映射关系 */
     private static final String SESSION_KEY_PREFIX = "mcp:gateway:sessions:";
 
+    /** Redis模板对象 */
     private final StringRedisTemplate redisTemplate;
 
+    /**
+     * 绑定网关与会话关联关系
+     *
+     * @param gatewayId 网关唯一标识
+     * @param sessionId 会话唯一标识
+     */
     @Override
     public void bindSession(String gatewayId, String sessionId) {
         String key = SESSION_KEY_PREFIX + gatewayId;
-        // 1. 绑定会话到 Set
+        // 将会话ID加入集合
         redisTemplate
                 .opsForSet()
                 .add(key, sessionId);
-
-        // 2. 建议设置过期时间（例如 24 小时），防止极端情况下连接断开未触发 remove 导致的内存泄漏
+        // 设置过期时间，防止内存泄漏
         redisTemplate.expire(key, 24, TimeUnit.HOURS);
     }
 
+    /**
+     * 获取网关下所有会话ID
+     *
+     * @param gatewayId 网关唯一标识
+     * @return 会话ID集合
+     */
     @Override
     public Set<String> getSessions(String gatewayId) {
         Set<String> sessions = redisTemplate
@@ -50,15 +65,21 @@ public class SessionRedisAdapter implements SessionRedisPort {
         return CollectionUtils.isEmpty(sessions) ? Collections.emptySet() : sessions;
     }
 
+    /**
+     * 跨节点消息发布
+     *
+     * @param hostIp    目标机器IP
+     * @param sessionId 目标会话ID
+     * @param message   协议消息体
+     */
     @Override
     public void publish(String hostIp, String sessionId, McpSchemaVO.JSONRPCMessage message) {
-        // 1. 确定目标机器节点的主题
+        // 构建目标主题
         String targetTopic = MCP_TOPIC_PREFIX + hostIp;
-
-        // 2. 封装内部传输对象
+        // 封装消息对象
         RemotePushMessage remoteMsg = new RemotePushMessage(sessionId, message);
 
-        // 3. 使用 Fastjson2 序列化并广播
+        // 序列化并发布消息
         try {
             String jsonPayload = JSON.toJSONString(remoteMsg);
             redisTemplate.convertAndSend(targetTopic, jsonPayload);
@@ -67,6 +88,12 @@ public class SessionRedisAdapter implements SessionRedisPort {
         }
     }
 
+    /**
+     * 移除网关与会话关联关系
+     *
+     * @param gatewayId 网关唯一标识
+     * @param sessionId 会话唯一标识
+     */
     @Override
     public void removeSession(String gatewayId, String sessionId) {
         redisTemplate
@@ -76,7 +103,7 @@ public class SessionRedisAdapter implements SessionRedisPort {
 
     /**
      * 内部跨节点通讯对象
-     * 用于在 Redis Pub/Sub 中传输，承载目标会话 ID 和 MCP 协议原文
+     * 用于Redis Pub/Sub传输，承载会话ID和协议消息
      */
     @Data
     @Builder
@@ -85,7 +112,7 @@ public class SessionRedisAdapter implements SessionRedisPort {
     public static class RemotePushMessage {
         /** 目标会话唯一标识 */
         private String sessionId;
-        /** MCP 协议消息内容 */
+        /** MCP协议消息内容 */
         private McpSchemaVO.JSONRPCMessage message;
     }
 }

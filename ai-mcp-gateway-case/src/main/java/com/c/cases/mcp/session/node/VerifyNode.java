@@ -6,6 +6,7 @@ import com.c.cases.mcp.session.AbstractMcpSessionSupport;
 import com.c.cases.mcp.session.factory.DefaultMcpSessionFactory;
 import com.c.domain.auth.model.entity.LicenseCommandEntity;
 import com.c.domain.auth.service.AuthLicenseService;
+import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.types.exception.AppException;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,10 @@ public class VerifyNode extends AbstractMcpSessionSupport {
     /** 授权认证领域服务，负责API密钥合法性校验 */
     @Resource
     private AuthLicenseService authLicenseService;
+
+    /** 会话领域仓储：负责会话生命周期管理及关联配置查询 */
+    @Resource
+    private SessionRepository sessionRepository;
 
     /**
      * 执行网关与授权校验逻辑
@@ -65,7 +70,7 @@ public class VerifyNode extends AbstractMcpSessionSupport {
                     }
 
                     // 3. 加载网关配置
-                    var config = gatewayRepository.queryMcpGatewayConfigByGatewayId(gatewayId);
+                    var config = sessionRepository.queryMcpGatewayConfigByGatewayId(gatewayId);
                     if (config == null) {
                         return Flux.error(new AppException("CONF_001", "未找到网关配置: " + gatewayId));
                     }
