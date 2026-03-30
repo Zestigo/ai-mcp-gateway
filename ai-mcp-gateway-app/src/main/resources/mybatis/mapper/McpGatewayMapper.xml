@@ -29,12 +29,14 @@
 
     <update id="updateByGatewayId" parameterType="com.c.infrastructure.dao.po.McpGatewayPO">
         UPDATE mcp_gateway
-        SET gateway_name        = #{gatewayName},
-            gateway_description = #{gatewayDescription},
-            gateway_version     = #{gatewayVersion},
-            status              = #{status},
-            auth                = #{auth},
-            update_time         = NOW()
+        <set>
+            <if test="gatewayName != null">gateway_name = #{gatewayName},</if>
+            <if test="gatewayDescription != null">gateway_description = #{gatewayDescription},</if>
+            <if test="gatewayVersion != null">gateway_version = #{gatewayVersion},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="auth != null">auth = #{auth},</if>
+            update_time = NOW()
+        </set>
         WHERE gateway_id = #{gatewayId}
     </update>
 
@@ -82,13 +84,30 @@
     <select id="queryAll" resultMap="mcpGatewayMap">
         SELECT
         <include refid="all_columns"/>
-        FROM mcp_gateway
-        ORDER BY create_time DESC
+        FROM mcp_gateway ORDER BY create_time DESC
     </select>
 
     <select id="countAll" resultType="java.lang.Long">
         SELECT COUNT(*)
         FROM mcp_gateway
+    </select>
+
+    <select id="queryByGatewayIds" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway
+        WHERE gateway_id IN
+        <foreach collection="gatewayIds" item="gid" open="(" separator="," close=")">
+            #{gid}
+        </foreach>
+    </select>
+
+    <select id="queryActiveGateways" resultMap="mcpGatewayMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway
+        WHERE status = 1
+        ORDER BY update_time DESC
     </select>
 
 </mapper>

@@ -20,6 +20,9 @@ import java.util.List;
 @AllArgsConstructor
 public class HTTPProtocolVO {
 
+    /** 所属网关协议ID */
+    private Long protocolId;
+
     /** HTTP请求完整地址 */
     private String httpUrl;
 

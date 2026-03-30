@@ -8,7 +8,11 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * MCP工具注册表
+ * MCP协议HTTP配置持久化对象
+ * 用于存储MCP工具HTTP调用相关的配置信息，包括接口地址、请求方式、超时、重试等配置
+ *
+ * @author cyh
+ * @date 2026/03/29
  */
 @Data
 @Builder
@@ -16,45 +20,34 @@ import java.util.Date;
 @AllArgsConstructor
 public class McpProtocolHttpPO {
 
-    /**
-     * 主键ID
-     */
+    /** 主键ID */
     private Long id;
-    /**
-     * 所属网关ID
-     */
+
+    /** 所属网关协议ID */
     private Long protocolId;
-    /**
-     * HTTP接口地址
-     */
+
+    /** HTTP接口请求地址 */
     private String httpUrl;
-    /**
-     * HTTP请求方法：GET/POST/PUT/DELETE
-     */
+
+    /** HTTP请求方法，可选值：GET、POST、PUT、DELETE */
     private String httpMethod;
-    /**
-     * HTTP请求头（JSON格式）
-     */
+
+    /** HTTP请求头，以JSON字符串格式存储 */
     private String httpHeaders;
-    /**
-     * 超时时间（毫秒）
-     */
+
+    /** HTTP请求超时时间，单位：毫秒 */
     private Integer timeout;
-    /**
-     * 重试次数
-     */
+
+    /** HTTP请求失败重试次数 */
     private Integer retryTimes;
-    /**
-     * 状态：0-禁用，1-启用
-     */
+
+    /** 配置状态，0-禁用，1-启用 */
     private Integer status;
-    /**
-     * 创建时间
-     */
+
+    /** 记录创建时间 */
     private Date createTime;
-    /**
-     * 更新时间
-     */
+
+    /** 记录更新时间 */
     private Date updateTime;
 
 }

@@ -10,6 +10,9 @@ import java.util.Date;
 /**
  * MCP网关数据库持久化对象
  * 映射数据库网关配置表，存储网关标识、名称、版本、状态、鉴权开关等核心配置信息
+ *
+ * @author cyh
+ * @date 2026/03/29
  */
 @Data
 @Builder

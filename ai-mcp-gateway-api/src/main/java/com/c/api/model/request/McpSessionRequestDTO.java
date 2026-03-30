@@ -1,4 +1,4 @@
-package com.c.api.model;
+package com.c.api.model.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class McpSessionRequest {
+public class McpSessionRequestDTO {
 
     /** 网关唯一标识 */
     private String gatewayId;

@@ -1,30 +1,38 @@
 package com.c.infrastructure.adapter.repository;
 
+import com.alibaba.fastjson.JSON;
 import com.c.domain.protocol.adapter.repository.ProtocolRepository;
+import com.c.domain.protocol.model.valobj.ProtocolRefreshMessage;
 import com.c.domain.protocol.model.valobj.enums.ProtocolStatusEnum;
 import com.c.domain.protocol.model.valobj.http.HTTPProtocolVO;
+import com.c.infrastructure.dao.McpMessageLogDao;
 import com.c.infrastructure.dao.McpProtocolHttpDao;
 import com.c.infrastructure.dao.McpProtocolMappingDao;
+import com.c.infrastructure.dao.po.McpMessageLogPO;
 import com.c.infrastructure.dao.po.McpProtocolHttpPO;
 import com.c.infrastructure.dao.po.McpProtocolMappingPO;
+import com.c.types.enums.MessageStatusEnum;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * 协议仓储服务实现类
- * 基于分布式锁+Spring事务实现协议的并发安全保存与管理
- * 采用自身注入代理解决类内调用事务失效问题
+ * 协议配置仓储实现
+ * 负责协议配置数据持久化、分布式锁控制、本地消息表管理
+ * 支撑分布式事务最终一致性与并发安全
  *
  * @author cyh
  * @date 2026/03/29
@@ -33,79 +41,101 @@ import java.util.stream.Collectors;
 @Repository
 public class ProtocolRepositoryImpl implements ProtocolRepository {
 
-    /** Redisson分布式锁客户端 */
+    /** Redisson分布式锁客户端，用于控制协议配置并发更新 */
     @Resource
     private RedissonClient redissonClient;
 
-    /** HTTP协议数据访问对象 */
+    /** HTTP协议配置DAO，操作协议主表 */
     @Resource
     private McpProtocolHttpDao protocolHttpDao;
 
-    /** 协议字段映射数据访问对象 */
+    /** 协议字段映射DAO，操作协议映射子表 */
     @Resource
     private McpProtocolMappingDao protocolMappingDao;
 
-    /** 延迟注入自身代理对象，解决类内方法调用事务失效问题 */
+    /** 本地消息表DAO，用于分布式事务消息重试 */
+    @Resource
+    private McpMessageLogDao messageLogDao;
+
+    /**
+     * 延迟注入自身代理对象
+     * 解决内部方法调用@Transactional事务不生效问题
+     */
     @Resource
     @Lazy
     private ProtocolRepositoryImpl self;
 
+    /* ========================== 协议核心业务实现 ========================== */
+
     /**
      * 批量保存协议配置
-     * 循环处理单条协议，保证批量操作稳定性
+     * 内部逐条加锁保证并发安全，避免接口路径重复冲突
      *
-     * @param protocolVOS 协议视图对象集合
-     * @return 协议ID集合
+     * @param protocolVOS 协议视图对象列表
+     * @return 生成的协议ID列表
      */
     @Override
     public List<Long> batchSaveProtocols(List<HTTPProtocolVO> protocolVOS) {
-        List<Long> ids = new ArrayList<>();
-        for (HTTPProtocolVO vo : protocolVOS) {
-            ids.add(this.saveWithLock(vo));
+        // 空集合直接返回空，避免空指针与无效遍历
+        if (null == protocolVOS || protocolVOS.isEmpty()) {
+            return Collections.emptyList();
         }
-        return ids;
+
+        // 逐条加锁处理，保证最小锁粒度，提升并发安全性
+        return protocolVOS
+                .stream()
+                .map(this::saveWithLock)
+                .collect(Collectors.toList());
     }
 
     /**
-     * 分布式锁包装方法，保证协议操作并发安全
-     * 锁粒度：请求方法+URL，避免全局锁影响性能
+     * 加锁保存单条协议配置
+     * 锁粒度：HTTP请求方法 + URL，保证唯一接口不被并发修改
      *
      * @param protocolVO 协议视图对象
-     * @return 协议ID
+     * @return 生成的协议ID
      */
     private Long saveWithLock(HTTPProtocolVO protocolVO) {
-        // 构建分布式锁Key，统一大写保证唯一性
-        String lockKey = "mcp:lock:protocol:" + protocolVO
+        // 1. 构造唯一锁Key
+        // 建议：对 URL 进行 MD5 或简单的摘要处理，防止 URL 过长超过 Redis Key 限制
+        String urlSummary = DigestUtils.md5DigestAsHex(protocolVO
+                .getHttpUrl()
+                .getBytes(StandardCharsets.UTF_8));
+        String lockKey = String.format("mcp:lock:protocol:%s:%s", protocolVO
                 .getHttpMethod()
-                .toUpperCase() + ":" + protocolVO.getHttpUrl();
+                .toUpperCase(), urlSummary);
+
         RLock lock = redissonClient.getLock(lockKey);
 
         try {
-            // 尝试获取锁：最大等待10秒，持有30秒自动释放
-            if (lock.tryLock(10, 30, TimeUnit.SECONDS)) {
-                // 通过自身代理调用，保证@Transactional事务生效
-                return self.saveOrUpdateProtocol(protocolVO);
-            } else {
-                log.warn("获取协议操作锁超时: {}", lockKey);
-                throw new RuntimeException("系统繁忙，当前协议正在被操作，请稍后再试");
+            // 2. 尝试获取锁：等待10秒，锁定30秒
+            if (!lock.tryLock(10, 30, TimeUnit.SECONDS)) {
+                log.warn("并发保存协议冲突，未能获取到锁: {}", lockKey);
+                throw new RuntimeException("当前协议正在配置中，请勿重复操作");
             }
+
+            // 3. 获取锁成功，执行核心保存逻辑
+            // 注意：这里必须通过 self (Spring 代理对象) 调用，否则 @Transactional 会失效
+            return self.saveOrUpdateProtocol(protocolVO);
+
         } catch (InterruptedException e) {
-            // 恢复线程中断状态
             Thread
                     .currentThread()
-                    .interrupt();
-            throw new RuntimeException("操作被中断", e);
+                    .interrupt(); // 恢复中断状态
+            log.error("分布式锁操作被中断，Key: {}", lockKey, e);
+            throw new RuntimeException("系统操作被中断，请重试");
         } finally {
-            // 安全释放锁：仅当前线程持有锁时解锁
+            // 4. 安全释放锁
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
+                log.debug("分布式锁已正常释放: {}", lockKey);
             }
         }
     }
 
     /**
-     * 保存或更新协议核心方法
-     * 事务保证原子性，基于URL+Method实现幂等覆盖
+     * 新增或更新协议配置（事务保证）
+     * 先删除旧数据，再插入新数据，保证幂等性
      *
      * @param protocolVO 协议视图对象
      * @return 协议ID
@@ -113,21 +143,21 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Long saveOrUpdateProtocol(HTTPProtocolVO protocolVO) {
-        // 幂等校验：查询相同URL+Method的存量协议
+        // 1. 幂等处理：根据URL+方法查询是否已存在配置
         McpProtocolHttpPO oldPO = protocolHttpDao.queryByUrlAndMethod(protocolVO.getHttpUrl(),
                 protocolVO.getHttpMethod());
-
-        // 存在旧数据则物理删除，保证数据干净
         if (null != oldPO) {
-            log.info("覆盖现有协议规则: protocolId={}", oldPO.getProtocolId());
+            // 存在旧数据，先删除主表与子表数据，保证数据覆盖一致性
             protocolHttpDao.deleteByProtocolId(oldPO.getProtocolId());
             protocolMappingDao.deleteByProtocolId(oldPO.getProtocolId());
         }
 
-        // 生成8位数字协议唯一ID
-        long protocolId = Long.parseLong(RandomStringUtils.randomNumeric(8));
+        // 2. 生成全局唯一自增协议ID（Redisson原子自增，保证趋势递增）
+        long protocolId = redissonClient
+                .getAtomicLong("mcp:seq:protocol_id")
+                .incrementAndGet();
 
-        // 构建并插入HTTP协议主数据
+        // 3. 构建并插入协议主表数据
         McpProtocolHttpPO httpPO = McpProtocolHttpPO
                 .builder()
                 .protocolId(protocolId)
@@ -140,10 +170,12 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
                 .build();
         protocolHttpDao.insert(httpPO);
 
-        // 处理字段映射数据，非空时批量插入
-        List<HTTPProtocolVO.ProtocolMapping> mappings = protocolVO.getMappings();
-        if (null != mappings && !mappings.isEmpty()) {
-            List<McpProtocolMappingPO> mappingPOs = mappings
+        // 4. 处理字段映射关系，非空时批量插入子表
+        if (null != protocolVO.getMappings() && !protocolVO
+                .getMappings()
+                .isEmpty()) {
+            List<McpProtocolMappingPO> mappingPOs = protocolVO
+                    .getMappings()
                     .stream()
                     .map(m -> McpProtocolMappingPO
                             .builder()
@@ -161,12 +193,97 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
             protocolMappingDao.insertList(mappingPOs);
         }
 
+        log.info("协议配置持久化成功 protocolId={} url={}", protocolId, protocolVO.getHttpUrl());
         return protocolId;
     }
 
+    /* ========================== 本地消息表实现 ========================== */
+
     /**
-     * 根据协议ID查询完整协议详情
-     * 包含主表信息与全量字段映射规则
+     * 保存协议刷新消息到本地消息表
+     * 用于分布式事务消息重试，保证最终一致性
+     *
+     * @param message 协议刷新消息
+     * @return 生成的消息ID
+     */
+    @Override
+    public String saveMessageLog(ProtocolRefreshMessage message) {
+        // 生成全局唯一消息ID，用于幂等去重与状态追踪
+        String messageId = "MSG_" + redissonClient
+                .getAtomicLong("mcp:seq:message_id")
+                .incrementAndGet();
+        message.setMessageId(messageId);
+
+        // 构建消息PO对象
+        McpMessageLogPO po = McpMessageLogPO
+                .builder()
+                .messageId(messageId)
+                .messageData(JSON.toJSONString(message))
+                .status(MessageStatusEnum.WAIT.getCode())
+                .retryCount(0)
+                .nextRetryTime(new Date())  // 立即执行第一次发送
+                .build();
+
+        // 插入消息表
+        messageLogDao.insert(po);
+        return messageId;
+    }
+
+    /**
+     * 更新消息状态
+     * 发送成功/失败后更新状态
+     *
+     * @param messageId 消息ID
+     * @param status    目标状态
+     */
+    @Override
+    public void updateMessageLogStatus(String messageId, MessageStatusEnum status) {
+        messageLogDao.updateStatus(messageId, status.getCode());
+    }
+
+    /**
+     * 更新消息重试信息
+     * 失败后记录重试次数与下次执行时间
+     *
+     * @param messageId     消息ID
+     * @param retryCount    重试次数
+     * @param nextRetryTime 下次重试时间
+     */
+    @Override
+    public void updateRetryInfo(String messageId, Integer retryCount, Date nextRetryTime) {
+        messageLogDao.updateRetryInfo(messageId, retryCount, nextRetryTime);
+    }
+
+    /**
+     * 查询待发送/待重试消息
+     * 定时任务拉取消息进行补偿
+     *
+     * @param limit 一次拉取条数
+     * @return 消息列表
+     */
+    @Override
+    public List<ProtocolRefreshMessage> queryWaitMessages(Integer limit) {
+        List<McpMessageLogPO> poList = messageLogDao.queryWaitMessages(limit);
+        if (poList == null || poList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // PO转领域消息对象，并回填最新重试次数用于退避算法
+        return poList
+                .stream()
+                .map(po -> {
+                    ProtocolRefreshMessage msg = JSON.parseObject(po.getMessageData(), ProtocolRefreshMessage.class);
+                    msg.setMessageId(po.getMessageId());
+                    msg.setRetryCount(po.getRetryCount());
+                    return msg;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /* ========================== 标准查询方法 ========================== */
+
+    /**
+     * 根据协议ID查询协议详情（主表+子表）
      *
      * @param protocolId 协议ID
      * @return 协议视图对象
@@ -174,31 +291,38 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
     @Override
     public HTTPProtocolVO queryProtocolDetail(Long protocolId) {
         McpProtocolHttpPO httpPO = protocolHttpDao.queryByProtocolId(protocolId);
-        if (null == httpPO) return null;
-        List<McpProtocolMappingPO> mappingPOs = protocolMappingDao.queryByProtocolId(protocolId);
-        return buildHTTPProtocolVO(httpPO, mappingPOs);
+        if (null == httpPO) {
+            return null;
+        }
+
+        // 查询关联的字段映射列表
+        List<McpProtocolMappingPO> mappingPOList = protocolMappingDao.queryByProtocolId(protocolId);
+        return buildHTTPProtocolVO(httpPO, mappingPOList);
     }
 
     /**
-     * 根据URL和请求方法精确查询协议
+     * 根据URL+请求方法查询协议
      *
-     * @param url    请求URL
+     * @param url    请求路径
      * @param method 请求方法
      * @return 协议视图对象
      */
     @Override
     public HTTPProtocolVO queryByUrl(String url, String method) {
         McpProtocolHttpPO httpPO = protocolHttpDao.queryByUrlAndMethod(url, method);
-        if (null == httpPO) return null;
-        List<McpProtocolMappingPO> mappingPOs = protocolMappingDao.queryByProtocolId(httpPO.getProtocolId());
-        return buildHTTPProtocolVO(httpPO, mappingPOs);
+        if (null == httpPO) {
+            return null;
+        }
+
+        List<McpProtocolMappingPO> mappingPOList = protocolMappingDao.queryByProtocolId(httpPO.getProtocolId());
+        return buildHTTPProtocolVO(httpPO, mappingPOList);
     }
 
     /**
-     * 更新协议启用/禁用状态
+     * 更新协议状态（启用/禁用）
      *
      * @param protocolId 协议ID
-     * @param status     协议状态枚举
+     * @param status     目标状态
      */
     @Override
     public void updateStatus(Long protocolId, ProtocolStatusEnum status) {
@@ -206,29 +330,33 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
     }
 
     /**
-     * 分页查询协议列表
-     * 管理后台使用，不加载映射数据提升性能
+     * 分页查询协议列表（不带映射关系）
      *
-     * @param urlKeyword URL模糊关键字
+     * @param urlKeyword URL关键词
      * @param page       页码
      * @param size       每页条数
-     * @return 协议视图对象集合
+     * @return 协议视图对象列表
      */
     @Override
     public List<HTTPProtocolVO> queryProtocolPage(String urlKeyword, Integer page, Integer size) {
-        List<McpProtocolHttpPO> pos = protocolHttpDao.queryProtocolPage(urlKeyword, (page - 1) * size, size);
-        if (null == pos || pos.isEmpty()) return new ArrayList<>();
-        return pos
+        // 计算分页起始位置
+        int start = (page - 1) * size;
+        List<McpProtocolHttpPO> poList = protocolHttpDao.queryProtocolPage(urlKeyword, start, size);
+
+        if (null == poList || poList.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return poList
                 .stream()
-                .map(po -> buildHTTPProtocolVO(po, new ArrayList<>()))
+                .map(po -> buildHTTPProtocolVO(po, Collections.emptyList()))
                 .collect(Collectors.toList());
     }
 
     /**
      * 查询所有启用状态的协议ID
-     * 用于定时任务缓存同步
      *
-     * @return 协议ID集合
+     * @return 协议ID列表
      */
     @Override
     public List<Long> queryAllActiveProtocolIds() {
@@ -240,15 +368,16 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
     }
 
     /**
-     * PO对象转换为VO视图对象
-     * 统一数据转换逻辑，提高代码复用性
+     * PO对象转换为HTTPProtocolVO视图对象
+     * 统一封装转换逻辑，避免重复代码
      *
      * @param po       协议主表PO
-     * @param mappings 映射PO集合
+     * @param mappings 协议映射PO列表
      * @return 协议视图对象
      */
     private HTTPProtocolVO buildHTTPProtocolVO(McpProtocolHttpPO po, List<McpProtocolMappingPO> mappings) {
-        List<HTTPProtocolVO.ProtocolMapping> mappingVOs = mappings
+        // 转换字段映射列表
+        List<HTTPProtocolVO.ProtocolMapping> mappingVOList = mappings
                 .stream()
                 .map(m -> HTTPProtocolVO.ProtocolMapping
                         .builder()
@@ -263,13 +392,15 @@ public class ProtocolRepositoryImpl implements ProtocolRepository {
                         .build())
                 .collect(Collectors.toList());
 
+        // 构建返回视图对象
         return HTTPProtocolVO
                 .builder()
+                .protocolId(po.getProtocolId())
                 .httpUrl(po.getHttpUrl())
                 .httpMethod(po.getHttpMethod())
                 .httpHeaders(po.getHttpHeaders())
                 .timeout(po.getTimeout())
-                .mappings(mappingVOs)
+                .mappings(mappingVOList)
                 .build();
     }
 }

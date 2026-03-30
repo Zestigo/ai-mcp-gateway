@@ -30,26 +30,28 @@
     </sql>
 
     <select id="queryCompositeAuth" parameterType="com.c.infrastructure.dao.po.McpGatewayCompositePO" resultMap="mcpGatewayCompositeMap">
-        SELECT g.gateway_id   AS g_gateway_id,
-               g.auth         AS g_auth,
-               g.status       AS g_status,
-               ga.api_key     AS ga_api_key,
-               ga.rate_limit  AS ga_rate_limit,
-               ga.expire_time AS ga_expire_time,
-               ga.status      AS ga_status
+        SELECT g.gateway_id AS g_gateway_id,
+        g.auth AS g_auth,
+        g.status AS g_status,
+        ga.api_key AS ga_api_key,
+        ga.rate_limit AS ga_rate_limit,
+        ga.expire_time AS ga_expire_time,
+        ga.status AS ga_status
         FROM mcp_gateway g
-                 INNER JOIN mcp_gateway_auth ga
-                            ON g.gateway_id = ga.gateway_id
+        INNER JOIN mcp_gateway_auth ga
+        ON g.gateway_id = ga.gateway_id
         WHERE g.gateway_id = #{gatewayId}
-          AND ga.api_key = #{apiKey}
-          AND g.status = 1
-          AND ga.status = 1
-          AND ga.expire_time > NOW()
+        <if test="apiKey != null">AND ga.api_key = #{apiKey}</if>
+        AND g.status = 1
+        AND ga.status = 1
+        AND ga.expire_time > NOW()
+        LIMIT 1
     </select>
 
     <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_gateway_auth (gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time)
-        VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW())
+        VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime},
+                COALESCE(#{status}, 1), NOW(), NOW())
     </insert>
 
     <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO">
@@ -81,7 +83,11 @@
         SELECT
         <include refid="all_columns"/>
         FROM mcp_gateway_auth
-        WHERE gateway_id = #{gatewayId} AND api_key = #{apiKey} AND status = 1 AND expire_time > NOW()
+        WHERE gateway_id = #{gatewayId}
+        AND api_key = #{apiKey}
+        AND status = 1
+        AND expire_time > NOW()
+        LIMIT 1
     </select>
 
     <select id="queryEffectiveGatewayAuthCount" parameterType="java.lang.String" resultType="java.lang.Integer">

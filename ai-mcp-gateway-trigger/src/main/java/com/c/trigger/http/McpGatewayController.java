@@ -1,5 +1,6 @@
 package com.c.trigger.http;
 
+import com.c.api.service.McpGatewayService;
 import com.c.cases.mcp.api.service.McpMessageService;
 import com.c.cases.mcp.api.service.McpSessionService;
 import com.c.domain.session.model.entity.HandleMessageCommandEntity;
@@ -29,7 +30,7 @@ import java.util.Optional;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/gateways")
-public class McpGatewayController {
+public class McpGatewayController implements McpGatewayService {
 
     /** 会话服务，负责SSE连接管理 */
     private final McpSessionService mcpSessionService;
