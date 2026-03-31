@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.c.infrastructure.dao.McpProtocolHttpDao">
 
-    <resultMap id="McpProtocolRegistryMap" type="com.c.infrastructure.dao.po.McpProtocolHttpPO">
+    <resultMap id="McpProtocolHttpMap" type="com.c.infrastructure.dao.po.McpProtocolHttpPO">
         <id column="id" property="id" jdbcType="BIGINT"/>
         <result column="protocol_id" property="protocolId" jdbcType="BIGINT"/>
         <result column="http_url" property="httpUrl" jdbcType="VARCHAR"/>
@@ -13,70 +13,133 @@
         <result column="status" property="status" jdbcType="INTEGER"/>
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="version" property="version" jdbcType="BIGINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
+        id, protocol_id, http_url, http_method, http_headers,
+        timeout, retry_times, status, create_time, update_time, version
     </sql>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpProtocolHttpPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_protocol_http (
-            protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
-        ) VALUES (
-                     #{protocolId}, #{httpUrl}, #{httpMethod}, #{httpHeaders}, #{timeout}, #{retryTimes}, #{status}, NOW(), NOW()
-                 )
+    <sql id="protocolCondition">
+        <where>
+            <if test="protocolId != null">protocol_id = #{protocolId,jdbcType=BIGINT}</if>
+            <if test="status != null">AND status = #{status,jdbcType=INTEGER}</if>
+        </where>
+    </sql>
+
+    <select id="findProtocolById" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM mcp_protocol_http
+        WHERE protocol_id = #{protocolId,jdbcType=BIGINT} LIMIT 1
+    </select>
+
+    <insert id="createProtocol" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_protocol_http
+        (protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time, version)
+        VALUES (#{protocolId}, #{httpUrl}, #{httpMethod}, #{httpHeaders}, #{timeout}, #{retryTimes}, #{status}, NOW(), NOW(), 1)
     </insert>
 
-    <insert id="insertList" parameterType="java.util.List">
-        INSERT INTO mcp_protocol_http (
-        protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
-        ) VALUES
-        <foreach collection="list" item="item" separator=",">
-            (#{item.protocolId}, #{item.httpUrl}, #{item.httpMethod}, #{item.httpHeaders}, #{item.timeout}, #{item.retryTimes}, #{item.status}, NOW(),
-            NOW())
-        </foreach>
-    </insert>
+    <select id="queryProtocolConfigPage" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM mcp_protocol_http
+        <include refid="protocolCondition"/>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
 
-    <delete id="deleteByProtocolId" parameterType="java.lang.Long">
-        DELETE FROM mcp_protocol_http WHERE protocol_id = #{protocolId}
-    </delete>
+    <select id="queryProtocolConfigCount" resultType="long">
+        SELECT COUNT(*) FROM mcp_protocol_http
+        <include refid="protocolCondition"/>
+    </select>
+
+    <select id="getProtocolConfigList" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM mcp_protocol_http
+        <include refid="protocolCondition"/>
+        ORDER BY id DESC
+    </select>
 
     <update id="updateStatus">
         UPDATE mcp_protocol_http
-        SET status = #{status}, update_time = NOW()
-        WHERE protocol_id = #{protocolId}
+        SET status      = #{status,jdbcType=INTEGER},
+            update_time = NOW()
+        WHERE protocol_id = #{protocolId,jdbcType=BIGINT}
     </update>
 
-    <select id="queryByUrlAndMethod" resultMap="McpProtocolRegistryMap">
-        SELECT <include refid="Base_Column_List"/>
+    <select id="queryByProtocolId" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
         FROM mcp_protocol_http
-        WHERE http_url = #{httpUrl} AND http_method = #{httpMethod}
-        LIMIT 1
+        WHERE protocol_id = #{protocolId,jdbcType=BIGINT} LIMIT 1
     </select>
 
-    <select id="queryByProtocolId" parameterType="java.lang.Long" resultMap="McpProtocolRegistryMap">
-        SELECT <include refid="Base_Column_List"/>
+    <select id="queryByUrlAndMethod" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
         FROM mcp_protocol_http
-        WHERE protocol_id = #{protocolId}
+        WHERE http_url = #{httpUrl} AND http_method = #{httpMethod} LIMIT 1
     </select>
 
-    <select id="queryProtocolPage" resultMap="McpProtocolRegistryMap">
-        SELECT <include refid="Base_Column_List"/>
+    <delete id="deleteByProtocolId">
+        DELETE
+        FROM mcp_protocol_http
+        WHERE protocol_id = #{protocolId,jdbcType=BIGINT}
+    </delete>
+
+    <select id="queryProtocolPage" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
         FROM mcp_protocol_http
         <where>
-            <if test="urlKeyword != null and urlKeyword != ''">
-                AND http_url LIKE CONCAT('%', #{urlKeyword}, '%')
+            <if test="urlKeyword != null and urlKeyword.trim() != ''">
+                http_url LIKE CONCAT('%', #{urlKeyword}, '%')
             </if>
         </where>
         ORDER BY id DESC
         LIMIT #{offset}, #{limit}
     </select>
 
-    <select id="queryAllActive" resultMap="McpProtocolRegistryMap">
-        SELECT <include refid="Base_Column_List"/>
+    <select id="queryAllActive" resultMap="McpProtocolHttpMap">
+        SELECT
+        <include refid="Base_Column_List"/>
         FROM mcp_protocol_http
         WHERE status = 1
-        ORDER BY id DESC
     </select>
+    <select id="countProtocolPage" resultType="java.lang.Long" parameterType="java.lang.String">
+        SELECT COUNT(*)
+        FROM mcp_protocol_http
+        <where>
+            <if test="urlKeyword != null and urlKeyword != ''">
+                AND http_url LIKE CONCAT('%', #{urlKeyword}, '%')
+            </if>
+        </where>
+    </select>
+    <update id="updateProtocolConfigByCas">
+        UPDATE mcp_protocol_http
+        <set>
+            <if test="po.httpUrl != null">http_url = #{po.httpUrl},</if>
+            <if test="po.httpMethod != null">http_method = #{po.httpMethod},</if>
+            <if test="po.httpHeaders != null">http_headers = #{po.httpHeaders},</if>
+            <if test="po.timeout != null">timeout = #{po.timeout},</if>
+            <if test="po.retryTimes != null">retry_times = #{po.retryTimes},</if>
+            update_time = NOW(),
+            version = version + 1
+        </set>
+        WHERE protocol_id = #{po.protocolId}
+        AND version = #{oldVersion}
+    </update>
+
+    <update id="updateProtocolStatusByCas">
+        UPDATE mcp_protocol_http
+        SET status      = #{status},
+            update_time = NOW(),
+            version     = version + 1
+        WHERE protocol_id = #{protocolId}
+          AND version = #{oldVersion}
+    </update>
 
 </mapper>

@@ -1,6 +1,6 @@
 package com.c.trigger.listener;
 
-import com.c.types.util.InstanceProvider;
+import com.c.types.utils.InstanceProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -12,6 +12,9 @@ import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
  * Redis消息订阅配置类
  * 配置当前服务节点的Redis消息监听容器，绑定本机IP专属主题
  * 用于接收分布式环境中其他节点转发的MCP会话推送消息
+ *
+ * @author cyh
+ * @date 2026/03/31
  */
 @Configuration
 public class RedisSubConfig {

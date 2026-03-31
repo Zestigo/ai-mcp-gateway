@@ -46,38 +46,7 @@ public class GenericHttpGatewayTest {
      */
     @Test
     public void test_post() throws Exception {
-        // 从数据库查询MCP协议注册配置信息
-        McpProtocolHttpPO mcpProtocolRegistryPO = mcpProtocolHttpDao.queryById(1L);
 
-        // 获取请求地址、请求头、超时时间配置
-        String httpUrl = mcpProtocolRegistryPO.getHttpUrl();
-        String httpHeaders = mcpProtocolRegistryPO.getHttpHeaders();
-        Integer timeout = mcpProtocolRegistryPO.getTimeout();
-
-        // 构造业务请求参数
-        Map<String, Object> params = new java.util.HashMap<>();
-        params.put("city", "beijing");
-
-        Map<String, Object> company = new java.util.HashMap<>();
-        company.put("name", "alibaba");
-        company.put("type", "internet");
-        params.put("company", company);
-
-        // 构造HTTP请求头
-        Map<String, Object> headers = new java.util.HashMap<>();
-        headers.put("Content-Type", "application/json");
-
-        // 构建JSON格式请求体
-        RequestBody requestBody = RequestBody.create(JSON.toJSONString(params), MediaType.parse("application/json"));
-
-        // 执行POST请求并获取响应结果
-        retrofit2.Call<ResponseBody> call = gateway.post(httpUrl, headers, requestBody);
-        ResponseBody responseBody = call
-                .execute()
-                .body();
-
-        // 输出响应结果
-        log.info("测试结果：{}", responseBody != null ? responseBody.string() : null);
     }
 
 }

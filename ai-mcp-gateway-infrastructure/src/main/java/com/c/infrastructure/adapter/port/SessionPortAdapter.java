@@ -25,6 +25,9 @@ import java.util.regex.Pattern;
  * 会话端口适配器
  * 实现SessionPort接口，提供HTTP协议工具调用能力
  * 支持GET/POST请求动态分发、路径参数解析、统一响应处理
+ *
+ * @author cyh
+ * @date 2026/03/31
  */
 @Slf4j
 @Component

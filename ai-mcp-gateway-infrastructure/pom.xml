@@ -44,6 +44,10 @@
             <groupId>com.c</groupId>
             <artifactId>ai-mcp-gateway-domain</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.c</groupId>
+            <artifactId>ai-mcp-gateway-types</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

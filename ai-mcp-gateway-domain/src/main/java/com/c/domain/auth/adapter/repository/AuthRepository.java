@@ -37,7 +37,7 @@ public interface AuthRepository {
      *
      * @param mcpGatewayAuthVO 网关授权值对象
      */
-    void insert(McpGatewayAuthVO mcpGatewayAuthVO);
+    int insert(McpGatewayAuthVO mcpGatewayAuthVO);
 
     /**
      * 查询网关授权校验开关状态

@@ -7,108 +7,157 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MCP网关配置数据访问接口
- * 提供网关配置数据的新增、查询、更新、删除等持久化操作
+ * 网关基础配置数据访问层
+ * 负责网关信息的增删改查、状态管理、乐观锁更新
  *
  * @author cyh
- * @date 2026/03/30
+ * @date 2026/03/31
  */
 @Mapper
 public interface McpGatewayDao {
 
     /**
-     * 新增网关配置
+     * 分页查询网关配置列表
      *
-     * @param po 网关配置持久化对象
-     * @return 受影响的行数
+     * @param offset   偏移量
+     * @param pageSize 每页条数
+     * @param keyword  搜索关键词
+     * @param status   网关状态
+     * @return 网关配置PO列表
      */
-    int insert(McpGatewayPO po);
+    List<McpGatewayPO> queryGatewayConfigPage(@Param("offset") int offset, @Param("pageSize") int pageSize, @Param(
+            "keyword") String keyword, @Param("status") Integer status);
 
     /**
-     * 根据gatewayId更新网关基础配置（动态更新非空字段）
+     * 统计网关配置总数
      *
-     * @param po 网关配置持久化对象
-     * @return 受影响的行数
+     * @param keyword 搜索关键词
+     * @param status  网关状态
+     * @return 记录总数
      */
-    int updateByGatewayId(McpGatewayPO po);
+    long queryGatewayConfigCount(@Param("keyword") String keyword, @Param("status") Integer status);
 
     /**
-     * 根据gatewayId更新网关鉴权状态
+     * 根据网关ID查询网关配置
      *
-     * @param po 网关配置持久化对象
-     * @return 受影响的行数
+     * @param gatewayId 网关ID
+     * @return 网关配置PO
      */
-    int updateAuthStatusByGatewayId(McpGatewayPO po);
+    McpGatewayPO findGatewayById(@Param("gatewayId") String gatewayId);
 
     /**
-     * 根据gatewayId查询网关配置
+     * 插入网关配置
      *
-     * @param gatewayId 网关业务ID
-     * @return 网关配置持久化对象
+     * @param po 网关配置PO
+     * @return 影响行数
      */
-    McpGatewayPO queryByGatewayId(@Param("gatewayId") String gatewayId);
+    int insertGateway(McpGatewayPO po);
 
     /**
-     * 根据物理主键删除网关配置
+     * 基于乐观锁更新网关状态
      *
-     * @param id 物理主键ID
-     * @return 受影响的行数
+     * @param gatewayId  网关ID
+     * @param oldVersion 乐观锁版本号
+     * @param status     目标状态
+     * @return 影响行数
+     */
+    int updateGatewayStatusByCas(@Param("gatewayId") String gatewayId, @Param("oldVersion") Long oldVersion, @Param(
+            "status") Integer status);
+
+    /**
+     * 根据网关ID删除网关配置
+     *
+     * @param gatewayId 网关ID
+     * @return 影响行数
+     */
+    int deleteGateway(@Param("gatewayId") String gatewayId);
+
+    /**
+     * 发布网关
+     *
+     * @param gatewayId 网关ID
+     * @return 影响行数
+     */
+    int publishGateway(@Param("gatewayId") String gatewayId);
+
+    /**
+     * 下线网关
+     *
+     * @param gatewayId 网关ID
+     * @return 影响行数
+     */
+    int offlineGateway(@Param("gatewayId") String gatewayId);
+
+    /**
+     * 根据主键ID删除网关
+     *
+     * @param id 主键ID
+     * @return 影响行数
      */
     int deleteById(@Param("id") Long id);
 
     /**
-     * 根据物理主键动态更新网关配置
+     * 根据主键ID更新网关
      *
-     * @param po 网关配置持久化对象
-     * @return 受影响的行数
+     * @param po 网关配置PO
+     * @return 影响行数
      */
     int updateById(McpGatewayPO po);
 
     /**
-     * 根据物理主键查询网关配置
+     * 根据网关ID更新网关
      *
-     * @param id 物理主键ID
-     * @return 网关配置持久化对象
+     * @param po 网关配置PO
+     * @return 影响行数
+     */
+    int updateByGatewayId(McpGatewayPO po);
+
+    /**
+     * 根据主键ID查询网关
+     *
+     * @param id 主键ID
+     * @return 网关配置PO
      */
     McpGatewayPO queryById(@Param("id") Long id);
 
     /**
+     * 根据网关ID查询网关
+     *
+     * @param gatewayId 网关ID
+     * @return 网关配置PO
+     */
+    McpGatewayPO queryByGatewayId(@Param("gatewayId") String gatewayId);
+
+    /**
      * 查询所有网关配置
      *
-     * @return 网关配置持久化对象集合
+     * @return 网关配置PO列表
      */
     List<McpGatewayPO> queryAll();
 
     /**
-     * 查询网关总数量
+     * 根据网关ID列表批量查询网关
      *
-     * @return 网关配置总数量
-     */
-    long countAll();
-
-    /**
-     * 查询所有状态为“启用”的活跃网关 (status=1)
-     *
-     * @return 活跃网关配置持久化对象集合
-     */
-    List<McpGatewayPO> queryActiveGateways();
-
-    /**
-     * 根据业务主键集合批量查询网关配置
-     *
-     * @param gatewayIds 网关业务ID集合
-     * @return 网关配置持久化对象集合
+     * @param gatewayIds 网关ID集合
+     * @return 网关配置PO列表
      */
     List<McpGatewayPO> queryByGatewayIds(@Param("gatewayIds") List<String> gatewayIds);
 
     /**
-     * 根据网关业务ID和版本号更新网关状态（乐观锁控制）
+     * 根据网关ID更新认证状态
      *
-     * @param gatewayId 网关业务ID
-     * @param version   旧版本号，用于乐观锁比较
-     * @param status    待更新的网关状态值
-     * @return 受影响的行数
+     * @param po 网关配置PO
+     * @return 影响行数
      */
-    int updateStatusWithVersion(@Param("gatewayId") String gatewayId, @Param("version") String version, @Param(
-            "status") Integer status);
+    int updateAuthStatusByGatewayId(McpGatewayPO po);
+
+    /**
+     * 基于乐观锁更新网关完整配置
+     *
+     * @param po         网关配置PO
+     * @param oldVersion 乐观锁版本号
+     * @return 影响行数
+     */
+    int updateGatewayByCas(@Param("po") McpGatewayPO po, @Param("oldVersion") Long oldVersion);
+
 }

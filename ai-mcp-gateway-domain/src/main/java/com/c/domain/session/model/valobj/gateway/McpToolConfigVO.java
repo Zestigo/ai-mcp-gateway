@@ -27,6 +27,8 @@ public class McpToolConfigVO {
     /** 工具版本号 */
     private String toolVersion;
 
+    private Integer toolStatus;
+
     /** 工具关联协议配置 */
     private McpToolProtocolConfigVO mcpToolProtocolConfigVO;
 

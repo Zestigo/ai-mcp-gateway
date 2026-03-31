@@ -30,7 +30,7 @@ public class GatewayToolConfigServiceTest {
                 .toolId(Long.valueOf(RandomStringUtils.randomNumeric(4)))
                 .toolName("JavaSDKMCPClient_getCompanyEmployee")
                 .toolType("function")
-                .toolDescription("获取公司雇员信息")
+                .toolDescription("获取公司雇员信息").toolStatus(1)
                 .toolVersion("1.0.0")
                 .protocolId(83666188L)
                 .protocolType("http")

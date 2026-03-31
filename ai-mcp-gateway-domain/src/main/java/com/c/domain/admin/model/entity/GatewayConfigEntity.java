@@ -36,4 +36,6 @@ public class GatewayConfigEntity {
     /** 启用状态，0-禁用 1-启用 */
     private Integer status;
 
+    /** CAS乐观锁版本号 */
+    private Long  version;
 }

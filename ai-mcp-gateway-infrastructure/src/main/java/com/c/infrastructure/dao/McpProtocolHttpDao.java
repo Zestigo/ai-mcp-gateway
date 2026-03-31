@@ -8,122 +8,142 @@ import java.util.List;
 
 /**
  * HTTP协议数据访问接口
+ * 包含 status 字段
+ * 全部基于 protocolId 实现
  *
  * @author cyh
- * @date 2026/03/29
+ * @date 2026/03/31
  */
 @Mapper
 public interface McpProtocolHttpDao {
 
-    // --- 基础CRUD方法 ---
+    // ==================== 核心业务方法 ====================
 
     /**
-     * 新增HTTP协议数据
+     * 根据协议ID查询协议配置
      *
-     * @param po HTTP协议持久化对象
-     * @return 受影响行数
+     * @param protocolId 协议ID
+     * @return HTTP协议PO
      */
-    int insert(McpProtocolHttpPO po);
+    McpProtocolHttpPO findProtocolById(@Param("protocolId") Long protocolId);
 
     /**
-     * 根据主键ID删除HTTP协议数据
+     * 创建HTTP协议配置
      *
-     * @param id 主键ID
-     * @return 受影响行数
+     * @param po HTTP协议PO
+     * @return 影响行数
      */
-    int deleteById(Long id);
+    int createProtocol(McpProtocolHttpPO po);
 
     /**
-     * 根据主键ID更新HTTP协议数据
+     * 分页查询协议配置
      *
-     * @param po HTTP协议持久化对象
-     * @return 受影响行数
+     * @param offset     偏移量
+     * @param pageSize   每页条数
+     * @param protocolId 协议ID
+     * @param status     协议状态
+     * @return HTTP协议PO列表
      */
-    int updateById(McpProtocolHttpPO po);
+    List<McpProtocolHttpPO> queryProtocolConfigPage(@Param("offset") int offset, @Param("pageSize") int pageSize,
+                                                    @Param("protocolId") Long protocolId,
+                                                    @Param("status") Integer status);
 
     /**
-     * 根据主键ID查询HTTP协议数据
+     * 统计协议配置数量
      *
-     * @param id 主键ID
-     * @return HTTP协议持久化对象
+     * @param protocolId 协议ID
+     * @param status     协议状态
+     * @return 记录总数
      */
-    McpProtocolHttpPO queryById(Long id);
+    long queryProtocolConfigCount(@Param("protocolId") Long protocolId, @Param("status") Integer status);
 
     /**
-     * 查询所有HTTP协议数据
+     * 查询协议配置列表
      *
-     * @return HTTP协议持久化对象集合
+     * @param protocolId 协议ID
+     * @param status     协议状态
+     * @return HTTP协议PO列表
      */
-    List<McpProtocolHttpPO> queryAll();
+    List<McpProtocolHttpPO> getProtocolConfigList(@Param("protocolId") Long protocolId,
+                                                  @Param("status") Integer status);
 
     /**
-     * 根据协议ID查询HTTP协议数据
+     * 更新协议状态
      *
-     * @param protocolId 协议唯一标识
-     * @return HTTP协议持久化对象
-     */
-    McpProtocolHttpPO queryMcpProtocolHttpByProtocolId(Long protocolId);
-
-    // --- 业务方法 ---
-
-    /**
-     * 根据URL和请求方法精确查询协议数据，用于幂等校验
-     *
-     * @param httpUrl    请求URL
-     * @param httpMethod 请求方法
-     * @return HTTP协议持久化对象
-     */
-    McpProtocolHttpPO queryByUrlAndMethod(@Param("httpUrl") String httpUrl, @Param("httpMethod") String httpMethod);
-
-    /**
-     * 批量新增HTTP协议数据
-     *
-     * @param list HTTP协议持久化对象集合
-     * @return 受影响行数
-     */
-    int insertList(List<McpProtocolHttpPO> list);
-
-    /**
-     * 根据协议ID物理删除协议数据
-     *
-     * @param protocolId 协议唯一标识
-     * @return 受影响行数
-     */
-    int deleteByProtocolId(Long protocolId);
-
-    /**
-     * 更新协议启用/禁用状态
-     *
-     * @param protocolId 协议唯一标识
-     * @param status     状态编码
-     * @return 受影响行数
+     * @param protocolId 协议ID
+     * @param status     目标状态
+     * @return 影响行数
      */
     int updateStatus(@Param("protocolId") Long protocolId, @Param("status") Integer status);
 
     /**
-     * 分页模糊查询协议列表
+     * 根据协议ID查询协议
      *
-     * @param urlKeyword URL模糊关键字
-     * @param offset     分页起始位置
-     * @param limit      每页条数
-     * @return HTTP协议持久化对象集合
+     * @param protocolId 协议ID
+     * @return HTTP协议PO
+     */
+    McpProtocolHttpPO queryByProtocolId(@Param("protocolId") Long protocolId);
+
+    /**
+     * 根据URL和请求方法查询协议
+     *
+     * @param httpUrl    HTTP地址
+     * @param httpMethod 请求方法
+     * @return HTTP协议PO
+     */
+    McpProtocolHttpPO queryByUrlAndMethod(@Param("httpUrl") String httpUrl, @Param("httpMethod") String httpMethod);
+
+    /**
+     * 根据协议ID删除协议
+     *
+     * @param protocolId 协议ID
+     * @return 影响行数
+     */
+    int deleteByProtocolId(@Param("protocolId") Long protocolId);
+
+    /**
+     * 根据URL关键词分页查询协议
+     *
+     * @param urlKeyword URL关键词
+     * @param offset     偏移量
+     * @param limit      条数
+     * @return HTTP协议PO列表
      */
     List<McpProtocolHttpPO> queryProtocolPage(@Param("urlKeyword") String urlKeyword, @Param("offset") int offset,
                                               @Param("limit") int limit);
 
     /**
-     * 根据协议ID查询HTTP协议数据
+     * 查询所有启用状态的协议
      *
-     * @param protocolId 协议唯一标识
-     * @return HTTP协议持久化对象
-     */
-    McpProtocolHttpPO queryByProtocolId(Long protocolId);
-
-    /**
-     * 查询所有处于启用状态的协议数据
-     * 用于定时任务全量同步或预热
-     *
-     * @return 启用的协议列表
+     * @return HTTP协议PO列表
      */
     List<McpProtocolHttpPO> queryAllActive();
+
+    /**
+     * 基于乐观锁更新协议配置
+     *
+     * @param po         HTTP协议PO
+     * @param oldVersion 乐观锁版本号
+     * @return 影响行数
+     */
+    int updateProtocolConfigByCas(@Param("po") McpProtocolHttpPO po, @Param("oldVersion") Long oldVersion);
+
+    /**
+     * 基于乐观锁更新协议状态
+     *
+     * @param protocolId 协议ID
+     * @param status     目标状态
+     * @param oldVersion 乐观锁版本号
+     * @return 影响行数
+     */
+    int updateProtocolStatusByCas(@Param("protocolId") Long protocolId, @Param("status") Integer status, @Param(
+            "oldVersion") Long oldVersion);
+
+    /**
+     * 根据URL关键词统计协议数量
+     *
+     * @param urlKeyword URL关键词
+     * @return 记录总数
+     */
+    Long countProtocolPage(String urlKeyword);
 }

@@ -3,7 +3,7 @@ package com.c.domain.session.service.management;
 import com.c.domain.session.adapter.repository.SessionRepository;
 import com.c.domain.session.model.entity.McpSession;
 import com.c.domain.session.service.SessionManagementService;
-import com.c.types.util.InstanceProvider;
+import com.c.types.utils.InstanceProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;

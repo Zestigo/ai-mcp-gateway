@@ -1,29 +1,24 @@
-package com.c.infrastructure.dao.po;
+package com.c.api.model.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
-
 /**
- * MCP协议HTTP配置持久化对象
- * 用于存储MCP工具HTTP调用相关的配置信息，包括接口地址、请求方式、超时、重试等配置
+ * 网关协议配置传输对象
+ * 用于封装网关HTTP协议相关的请求、超时、重试等配置信息
  *
  * @author cyh
- * @date 2026/03/29
+ * @date 2026/03/31
  */
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
-public class McpProtocolHttpPO {
+@NoArgsConstructor
+public class GatewayProtocolDTO {
 
-    /** 主键ID */
-    private Long id;
-
-    /** 所属网关协议ID */
+    /** 所属网关协议ID，主键唯一标识 */
     private Long protocolId;
 
     /** HTTP接口请求地址 */
@@ -44,10 +39,7 @@ public class McpProtocolHttpPO {
     /** 配置状态，0-禁用，1-启用 */
     private Integer status;
 
-    /** 记录创建时间 */
-    private Date createTime;
-
-    /** 记录更新时间 */
-    private Date updateTime;
+    /** CAS乐观锁版本号，用于并发更新控制 */
     private Long version;
+
 }

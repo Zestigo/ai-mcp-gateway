@@ -36,6 +36,8 @@ public class GatewayToolConfigVO {
     /** 工具版本 */
     private String toolVersion;
 
+    private Integer toolStatus;
+
     /** 协议ID */
     private Long protocolId;
 

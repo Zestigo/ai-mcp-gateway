@@ -1,23 +1,36 @@
 package com.c.cases.admin;
 
-import com.c.domain.admin.model.entity.GatewayConfigEntity;
-
-import java.util.List;
-
 /**
- * 运营管理服务接口
- * 定义网关配置查询相关操作
+ * 管理后台网关生命周期管理服务接口
+ * 定义网关发布、下线、配置同步等生命周期操作标准
  *
  * @author cyh
- * @date 2026/03/29
+ * @date 2026/03/31
  */
 public interface AdminManageService {
 
     /**
-     * 查询网关配置列表
+     * 发布网关，使配置生效
      *
-     * @return 网关配置实体集合
+     * @param gatewayId 网关唯一标识
+     * @return 发布结果
      */
-    List<GatewayConfigEntity> queryGatewayConfigList();
+    boolean publishGateway(String gatewayId);
+
+    /**
+     * 下线网关，暂停服务
+     *
+     * @param gatewayId 网关唯一标识
+     * @return 下线结果
+     */
+    boolean offlineGateway(String gatewayId);
+
+    /**
+     * 同步网关配置
+     *
+     * @param gatewayId 网关唯一标识
+     * @return 同步结果
+     */
+    boolean syncGatewayConfig(String gatewayId);
 
 }

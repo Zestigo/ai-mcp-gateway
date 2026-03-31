@@ -32,7 +32,7 @@ public class McpGatewayDaoTest {
                 .status(1)
                 .build();
 
-        int result = mcpGatewayDao.insert(po);
+        int result = mcpGatewayDao.insertGateway(po);
         
         assertEquals("插入操作应该返回1", 1, result);
         assertNotNull("插入后ID不应该为null", po.getId());
@@ -48,7 +48,7 @@ public class McpGatewayDaoTest {
                                       .status(1)
                                       .build();
 
-        mcpGatewayDao.insert(po);
+        mcpGatewayDao.insertGateway(po);
         
         McpGatewayPO result = mcpGatewayDao.queryById(po.getId());
         
@@ -81,7 +81,7 @@ public class McpGatewayDaoTest {
                 .status(1)
                 .build();
 
-        mcpGatewayDao.insert(po);
+        mcpGatewayDao.insertGateway(po);
         
         po.setGatewayName("测试网关003-已更新");
         po.setGatewayDescription("这是更新后的描述信息");
@@ -107,7 +107,7 @@ public class McpGatewayDaoTest {
                 .status(1)
                 .build();
 
-        mcpGatewayDao.insert(po);
+        mcpGatewayDao.insertGateway(po);
         
         int deleteResult = mcpGatewayDao.deleteById(po.getId());
         
@@ -148,7 +148,7 @@ public class McpGatewayDaoTest {
                 .status(1)
                 .build();
 
-        int result = mcpGatewayDao.insert(po);
+        int result = mcpGatewayDao.insertGateway(po);
         
         assertEquals("插入操作应该返回1", 1, result);
         assertNotNull("插入后ID不应该为null", po.getId());
@@ -167,7 +167,7 @@ public class McpGatewayDaoTest {
                 .status(0) // 状态为禁用
                 .build();
 
-        int result = mcpGatewayDao.insert(po);
+        int result = mcpGatewayDao.insertGateway(po);
         
         assertEquals("插入操作应该返回1", 1, result);
         
@@ -185,7 +185,7 @@ public class McpGatewayDaoTest {
                 .status(1)
                 .build();
 
-        mcpGatewayDao.insert(po);
+        mcpGatewayDao.insertGateway(po);
         
         // 只更新状态
         po.setStatus(0);

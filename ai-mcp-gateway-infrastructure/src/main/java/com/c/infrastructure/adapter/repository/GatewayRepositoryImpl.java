@@ -71,7 +71,7 @@ public class GatewayRepositoryImpl implements GatewayRepository {
         McpGatewayPO existPo = mcpGatewayDao.queryByGatewayId(vo.getGatewayId());
         if (null == existPo) {
             // 不存在执行新增
-            mcpGatewayDao.insert(po);
+            mcpGatewayDao.insertGateway(po);
             log.info("[仓储层] 新增网关配置成功: {}", vo.getGatewayId());
         } else {
             // 已存在执行覆盖更新
@@ -128,6 +128,7 @@ public class GatewayRepositoryImpl implements GatewayRepository {
                 .toolName(vo.getToolName())
                 .toolType(vo.getToolType())
                 .toolDescription(vo.getToolDescription())
+                .toolStatus(vo.getToolStatus())
                 .toolVersion(vo.getToolVersion())
                 .protocolId(vo.getProtocolId())
                 .protocolType(vo.getProtocolType())
@@ -137,7 +138,7 @@ public class GatewayRepositoryImpl implements GatewayRepository {
         McpGatewayToolPO existTool = mcpGatewayToolDao.queryToolConfig(po);
         if (null == existTool) {
             // 不存在执行新增
-            mcpGatewayToolDao.insert(po);
+            mcpGatewayToolDao.addToolConfig(po);
             log.info("[仓储层] 新增工具配置成功: {}:{}", vo.getGatewayId(), vo.getToolId());
         } else {
             // 已存在执行更新
@@ -164,7 +165,12 @@ public class GatewayRepositoryImpl implements GatewayRepository {
                 .builder()
                 .gatewayId(vo.getGatewayId())
                 .toolId(vo.getToolId())
+                .toolName(vo.getToolName())
+                .toolType(vo.getToolType())
+                .toolDescription(vo.getToolDescription())
+                .toolVersion(vo.getToolVersion())
                 .protocolId(vo.getProtocolId())
+                .toolStatus(vo.getToolStatus())
                 .protocolType(vo.getProtocolType())
                 .build();
 

@@ -73,7 +73,7 @@ public class AuthRepositoryTest {
         System.out.println(">>> 开始执行测试：插入数据并验证三级缓存加载逻辑");
 
         // 1. 初始化网关基础数据，满足查询SQL的状态条件
-        mcpGatewayDao.insert(McpGatewayPO
+        mcpGatewayDao.insertGateway(McpGatewayPO
                 .builder()
                 .gatewayId(gatewayId)
                 .gatewayName("集成测试网关")
@@ -205,7 +205,7 @@ public class AuthRepositoryTest {
         System.out.println(">>> 开始执行测试：网关全局校验状态查询");
 
         // 初始化测试网关数据，设置强认证状态
-        mcpGatewayDao.insert(McpGatewayPO
+        mcpGatewayDao.insertGateway(McpGatewayPO
                 .builder()
                 .gatewayId(gatewayId)
                 .gatewayName("测试网关-" + gatewayId)

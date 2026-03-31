@@ -76,7 +76,7 @@ public class SessionRepositoryImpl implements SessionRepository {
     @Override
     public List<McpToolConfigVO> queryMcpGatewayToolConfigListByGatewayId(String gatewayId) {
         // 查询工具配置列表
-        List<McpGatewayToolPO> toolPOList = mcpGatewayToolDao.queryByGatewayId(gatewayId);
+        List<McpGatewayToolPO> toolPOList = mcpGatewayToolDao.getToolsByGatewayId(gatewayId);
         if (toolPOList == null || toolPOList.isEmpty()) return Collections.emptyList();
 
         // 提取协议ID集合，去重并过滤空值
@@ -116,6 +116,7 @@ public class SessionRepositoryImpl implements SessionRepository {
                         .toolName(tool.getToolName())
                         .toolDescription(tool.getToolDescription())
                         .toolVersion(tool.getToolVersion())
+                        .toolStatus(tool.getToolStatus())
                         .mcpToolProtocolConfigVO(McpToolProtocolConfigVO
                                 .builder()
                                 .requestProtocolMappings(mappingGroup.getOrDefault(tool.getProtocolId(),
@@ -146,7 +147,7 @@ public class SessionRepositoryImpl implements SessionRepository {
         if (protocolId == null) return null;
 
         // 查询HTTP协议配置
-        McpProtocolHttpPO httpPO = mcpProtocolHttpDao.queryMcpProtocolHttpByProtocolId(protocolId);
+        McpProtocolHttpPO httpPO = mcpProtocolHttpDao.queryByProtocolId(protocolId);
         if (httpPO == null) return null;
 
         // 构建并返回协议配置视图对象

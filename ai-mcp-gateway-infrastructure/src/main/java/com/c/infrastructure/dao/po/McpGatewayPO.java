@@ -47,4 +47,6 @@ public class McpGatewayPO {
     /** 记录更新时间 */
     private Date updateTime;
 
+    /** CAS乐观锁版本号 */
+    private Long  version;
 }

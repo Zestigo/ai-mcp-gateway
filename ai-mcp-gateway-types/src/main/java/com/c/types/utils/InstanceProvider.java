@@ -1,4 +1,4 @@
-package com.c.types.util;
+package com.c.types.utils;
 
 import cn.hutool.core.util.StrUtil;
 import jakarta.annotation.PostConstruct;

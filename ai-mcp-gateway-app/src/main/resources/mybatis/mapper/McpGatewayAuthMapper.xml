@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.c.infrastructure.dao.McpGatewayAuthDao">
 
     <resultMap id="mcpGatewayAuthMap" type="com.c.infrastructure.dao.po.McpGatewayAuthPO">
-        <id property="id" column="id"/>
-        <result property="gatewayId" column="gateway_id"/>
-        <result property="apiKey" column="api_key"/>
-        <result property="rateLimit" column="rate_limit"/>
-        <result property="expireTime" column="expire_time"/>
-        <result property="status" column="status"/>
-        <result property="createTime" column="create_time"/>
-        <result property="updateTime" column="update_time"/>
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="gatewayId" column="gateway_id" jdbcType="VARCHAR"/>
+        <result property="apiKey" column="api_key" jdbcType="VARCHAR"/>
+        <result property="rateLimit" column="rate_limit" jdbcType="INTEGER"/>
+        <result property="expireTime" column="expire_time" jdbcType="TIMESTAMP"/>
+        <result property="status" column="status" jdbcType="INTEGER"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+        <result property="version" column="version" jdbcType="BIGINT"/>
     </resultMap>
 
     <resultMap id="mcpGatewayCompositeMap" type="com.c.infrastructure.dao.po.McpGatewayCompositePO">
@@ -26,82 +25,96 @@
     </resultMap>
 
     <sql id="all_columns">
-        id, gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time
+        id, gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time, version
     </sql>
 
-    <select id="queryCompositeAuth" parameterType="com.c.infrastructure.dao.po.McpGatewayCompositePO" resultMap="mcpGatewayCompositeMap">
-        SELECT g.gateway_id AS g_gateway_id,
-        g.auth AS g_auth,
-        g.status AS g_status,
-        ga.api_key AS ga_api_key,
-        ga.rate_limit AS ga_rate_limit,
-        ga.expire_time AS ga_expire_time,
-        ga.status AS ga_status
-        FROM mcp_gateway g
-        INNER JOIN mcp_gateway_auth ga
-        ON g.gateway_id = ga.gateway_id
-        WHERE g.gateway_id = #{gatewayId}
-        <if test="apiKey != null">AND ga.api_key = #{apiKey}</if>
-        AND g.status = 1
-        AND ga.status = 1
-        AND ga.expire_time > NOW()
-        LIMIT 1
+    <sql id="query_condition">
+        <where>
+            <if test="gatewayId != null and gatewayId.trim() != ''">
+                gateway_id = #{gatewayId}
+            </if>
+        </where>
+    </sql>
+
+    <select id="queryGatewayAuthPage" resultMap="mcpGatewayAuthMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
+        <include refid="query_condition"/>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
     </select>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_gateway_auth (gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time)
-        VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime},
-                COALESCE(#{status}, 1), NOW(), NOW())
+    <select id="queryGatewayAuthCount" resultType="long">
+        SELECT COUNT(*) FROM mcp_gateway_auth
+        <include refid="query_condition"/>
+    </select>
+
+    <select id="getAuthListByGatewayId" resultMap="mcpGatewayAuthMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
+        WHERE gateway_id = #{gatewayId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="findAuthByApiKey" resultMap="mcpGatewayAuthMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_auth
+        WHERE api_key = #{apiKey} LIMIT 1
+    </select>
+
+    <select id="isApiKeyExists" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM mcp_gateway_auth
+        WHERE api_key = #{apiKey} LIMIT 1
+    </select>
+
+    <insert id="saveAuth" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_gateway_auth
+        (gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time, version)
+        VALUES (#{gatewayId}, #{apiKey}, #{rateLimit}, #{expireTime}, #{status}, NOW(), NOW(), 1)
     </insert>
 
-    <update id="updateById" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO">
+    <update id="updateApiKeyStatusByCas">
         UPDATE mcp_gateway_auth
-        <set>
-            <if test="gatewayId != null">gateway_id = #{gatewayId},</if>
-            <if test="apiKey != null">api_key = #{apiKey},</if>
-            <if test="rateLimit != null">rate_limit = #{rateLimit},</if>
-            <if test="expireTime != null">expire_time = #{expireTime},</if>
-            <if test="status != null">status = #{status},</if>
-            update_time = NOW()
-        </set>
-        WHERE id = #{id}
+        SET status = #{status},
+        update_time = NOW(),
+        version = version + 1
+        WHERE gateway_id = #{gatewayId}
+        AND api_key = #{apiKey}
+        AND version = #{oldVersion}
     </update>
 
-    <select id="queryById" parameterType="java.lang.Long" resultMap="mcpGatewayAuthMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_gateway_auth WHERE id = #{id}
+    <update id="revokeApiKey">
+        UPDATE mcp_gateway_auth
+        SET status = 0, update_time = NOW()
+        WHERE gateway_id = #{gatewayId} AND api_key = #{apiKey}
+    </update>
+
+    <select id="queryEffectiveGatewayAuthCount" resultType="java.lang.Integer">
+        SELECT COUNT(1) FROM mcp_gateway_auth
+        WHERE gateway_id = #{gatewayId} AND status = 1 AND expire_time > NOW()
     </select>
 
-    <select id="queryAll" resultMap="mcpGatewayAuthMap">
-        SELECT
-        <include refid="all_columns"/>
-        FROM mcp_gateway_auth ORDER BY create_time DESC
-    </select>
-
-    <select id="queryMcpGatewayAuthPO" parameterType="com.c.infrastructure.dao.po.McpGatewayAuthPO" resultMap="mcpGatewayAuthMap">
+    <select id="queryMcpGatewayAuthPO" resultMap="mcpGatewayAuthMap">
         SELECT
         <include refid="all_columns"/>
         FROM mcp_gateway_auth
-        WHERE gateway_id = #{gatewayId}
-        AND api_key = #{apiKey}
-        AND status = 1
-        AND expire_time > NOW()
+        WHERE gateway_id = #{gatewayId} AND api_key = #{apiKey} AND status = 1 AND expire_time > NOW()
         LIMIT 1
     </select>
 
-    <select id="queryEffectiveGatewayAuthCount" parameterType="java.lang.String" resultType="java.lang.Integer">
-        SELECT count(1)
-        FROM mcp_gateway_auth
-        WHERE gateway_id = #{gatewayId}
-          AND status = 1
-          AND expire_time > NOW()
+    <select id="queryCompositeAuth" resultMap="mcpGatewayCompositeMap">
+        SELECT
+        g.gateway_id AS g_gateway_id, g.auth AS g_auth, g.status AS g_status,
+        ga.api_key AS ga_api_key, ga.rate_limit AS ga_rate_limit, ga.expire_time AS ga_expire_time, ga.status AS ga_status
+        FROM mcp_gateway g
+        INNER JOIN mcp_gateway_auth ga ON g.gateway_id = ga.gateway_id
+        WHERE g.gateway_id = #{gatewayId}
+        <if test="apiKey != null and apiKey.trim() != ''">AND ga.api_key = #{apiKey}</if>
+        AND g.status = 1 AND ga.status = 1 AND ga.expire_time > NOW()
+        LIMIT 1
     </select>
-
-    <delete id="deleteById" parameterType="java.lang.Long">
-        DELETE
-        FROM mcp_gateway_auth
-        WHERE id = #{id}
-    </delete>
 
 </mapper>

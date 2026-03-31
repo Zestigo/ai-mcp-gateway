@@ -9,17 +9,28 @@ import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Component;
 
 /**
- * 基础设施层：基于 Redis 的事件发布实现
+ * 事件发布实现类
+ * 基于 Redis 的事件发布实现，负责广播协议刷新事件到集群
+ * 
+ * @author cyh
+ * @date 2026/03/31
  */
 @Slf4j
 @Component
 public class EventPublisherImpl implements EventPublisher {
 
+    /** Redisson 客户端，用于发布事件到 Redis 主题 */
     @Resource
     private RedissonClient redissonClient;
 
+    /** 协议刷新事件通道名称 */
     private static final String PROTOCOL_REFRESH_CHANNEL = "mcp_protocol_refresh_channel";
 
+    /**
+     * 发布协议刷新事件
+     * 
+     * @param message 协议刷新消息
+     */
     @Override
     public void publishProtocolRefresh(ProtocolRefreshMessage message) {
         try {

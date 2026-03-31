@@ -3,43 +3,97 @@
 <mapper namespace="com.c.infrastructure.dao.McpGatewayToolDao">
 
     <resultMap id="McpGatewayToolMap" type="com.c.infrastructure.dao.po.McpGatewayToolPO">
-        <id column="id" property="id"/>
-        <result column="gateway_id" property="gatewayId"/>
-        <result column="tool_id" property="toolId"/>
-        <result column="tool_name" property="toolName"/>
-        <result column="tool_type" property="toolType"/>
-        <result column="tool_description" property="toolDescription"/>
-        <result column="tool_version" property="toolVersion"/>
-        <result column="protocol_id" property="protocolId"/>
-        <result column="protocol_type" property="protocolType"/>
-        <result column="create_time" property="createTime"/>
-        <result column="update_time" property="updateTime"/>
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="gateway_id" property="gatewayId" jdbcType="VARCHAR"/>
+        <result column="tool_id" property="toolId" jdbcType="VARCHAR"/>
+        <result column="tool_name" property="toolName" jdbcType="VARCHAR"/>
+        <result column="tool_type" property="toolType" jdbcType="VARCHAR"/>
+        <result column="tool_status" property="toolStatus" jdbcType="INTEGER"/>
+        <result column="tool_description" property="toolDescription" jdbcType="VARCHAR"/>
+        <result column="tool_version" property="toolVersion" jdbcType="VARCHAR"/>
+        <result column="protocol_id" property="protocolId" jdbcType="BIGINT"/>
+        <result column="protocol_type" property="protocolType" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="version" property="version" jdbcType="BIGINT"/>
     </resultMap>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.po.McpGatewayToolPO">
-        INSERT INTO mcp_gateway_tool (gateway_id, tool_id, tool_name, tool_type,
-                                      tool_description, tool_version, protocol_id, protocol_type,
-                                      create_time, update_time)
-        VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType},
-                #{toolDescription}, #{toolVersion}, #{protocolId}, #{protocolType},
-                NOW(), NOW())
+    <sql id="all_columns">
+        id, gateway_id, tool_id, tool_name, tool_type, tool_status,
+        tool_description, tool_version, protocol_id, protocol_type, create_time, update_time, version
+    </sql>
+
+    <sql id="toolCondition">
+        <where>
+            <if test="gatewayId != null and gatewayId.trim() != ''">gateway_id = #{gatewayId}</if>
+            <if test="protocolId != null">AND protocol_id = #{protocolId}</if>
+            <if test="toolStatus != null">AND tool_status = #{toolStatus}</if>
+        </where>
+    </sql>
+
+    <select id="queryGatewayToolConfigPage" resultMap="McpGatewayToolMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_tool
+        <include refid="toolCondition"/>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="queryGatewayToolConfigCount" resultType="long">
+        SELECT COUNT(*) FROM mcp_gateway_tool
+        <include refid="toolCondition"/>
+    </select>
+
+    <select id="getToolsByGatewayId" resultMap="McpGatewayToolMap">
+        SELECT
+        <include refid="all_columns"/>
+        FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId}
+        ORDER BY create_time DESC
+    </select>
+
+    <insert id="addToolConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_gateway_tool
+        (gateway_id, tool_id, tool_name, tool_type, tool_status, tool_description,
+         tool_version, protocol_id, protocol_type, create_time, update_time, version)
+        VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolStatus}, #{toolDescription},
+                #{toolVersion}, #{protocolId}, #{protocolType}, NOW(), NOW(), 1)
     </insert>
 
-    <update id="updateToolConfig" parameterType="com.c.infrastructure.dao.po.McpGatewayToolPO">
+    <delete id="removeToolFromGateway">
+        DELETE
+        FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId}
+          AND protocol_id = #{protocolId}
+          AND tool_id = #{toolId}
+    </delete>
+
+    <select id="isToolConfigured" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId}
+          AND protocol_id = #{protocolId}
+          AND tool_id = #{toolId}
+        LIMIT 1
+    </select>
+
+    <update id="updateToolConfig">
         UPDATE mcp_gateway_tool
         <set>
             <if test="toolName != null">tool_name = #{toolName},</if>
             <if test="toolType != null">tool_type = #{toolType},</if>
+            <if test="toolStatus != null">tool_status = #{toolStatus},</if>
             <if test="toolDescription != null">tool_description = #{toolDescription},</if>
             <if test="toolVersion != null">tool_version = #{toolVersion},</if>
             <if test="protocolId != null">protocol_id = #{protocolId},</if>
             <if test="protocolType != null">protocol_type = #{protocolType},</if>
             update_time = NOW()
         </set>
-        WHERE gateway_id = #{gatewayId} AND tool_id = #{toolId}
+        WHERE gateway_id = #{gatewayId} AND protocol_id = #{protocolId} AND tool_id = #{toolId}
     </update>
 
-    <update id="updateProtocolByGatewayId" parameterType="com.c.infrastructure.dao.po.McpGatewayToolPO">
+    <update id="updateProtocolByGatewayId">
         UPDATE mcp_gateway_tool
         SET protocol_id   = #{protocolId},
             protocol_type = #{protocolType},
@@ -48,47 +102,49 @@
           AND tool_id = #{toolId}
     </update>
 
-    <select id="queryByGatewayId" parameterType="java.lang.String" resultMap="McpGatewayToolMap">
-        SELECT id,
-               gateway_id,
-               tool_id,
-               tool_name,
-               tool_type,
-               tool_description,
-               tool_version,
-               protocol_id,
-               protocol_type,
-               create_time,
-               update_time
+    <select id="queryToolConfig" resultMap="McpGatewayToolMap">
+        SELECT
+        <include refid="all_columns"/>
         FROM mcp_gateway_tool
-        WHERE gateway_id = #{gatewayId}
-        ORDER BY update_time DESC
+        WHERE gateway_id = #{gatewayId} AND tool_id = #{toolId} LIMIT 1
     </select>
 
-    <select id="queryToolConfig" parameterType="com.c.infrastructure.dao.po.McpGatewayToolPO" resultMap="McpGatewayToolMap">
-        SELECT id,
-               gateway_id,
-               tool_id,
-               tool_name,
-               tool_type,
-               tool_description,
-               tool_version,
-               protocol_id,
-               protocol_type,
-               create_time,
-               update_time
-        FROM mcp_gateway_tool
-        WHERE gateway_id = #{gatewayId}
-          AND tool_id = #{toolId}
-        LIMIT 1
-    </select>
-
-    <select id="queryToolProtocolIdByToolName" parameterType="com.c.infrastructure.dao.po.McpGatewayToolPO" resultType="java.lang.Long">
+    <select id="queryToolProtocolIdByToolName" resultType="long">
         SELECT protocol_id
         FROM mcp_gateway_tool
-        WHERE gateway_id = #{gatewayId} AND tool_name = #{toolName}
-        <if test="toolId != null">AND tool_id = #{toolId}</if>
+        WHERE gateway_id = #{gatewayId}
+          AND tool_name = #{toolName}
         LIMIT 1
     </select>
+
+    <update id="updateToolStatusByCas">
+        UPDATE mcp_gateway_tool
+        SET tool_status = #{status},
+            update_time = NOW(),
+            version     = version + 1
+        WHERE gateway_id = #{gatewayId}
+          AND protocol_id = #{protocolId}
+          AND tool_id = #{toolId}
+          AND version = #{oldVersion}
+    </update>
+
+    <update id="updateToolConfigByCas">
+        UPDATE mcp_gateway_tool
+        <set>
+            <if test="po.toolName != null">tool_name = #{po.toolName},</if>
+            <if test="po.toolType != null">tool_type = #{po.toolType},</if>
+            <if test="po.toolStatus != null">tool_status = #{po.toolStatus},</if>
+            <if test="po.toolDescription != null">tool_description = #{po.toolDescription},</if>
+            <if test="po.toolVersion != null">tool_version = #{po.toolVersion},</if>
+            <if test="po.protocolId != null">protocol_id = #{po.protocolId},</if>
+            <if test="po.protocolType != null">protocol_type = #{po.protocolType},</if>
+            update_time = NOW(),
+            version = version + 1
+        </set>
+        WHERE gateway_id = #{po.gatewayId}
+        AND protocol_id = #{po.protocolId}
+        AND tool_id = #{po.toolId}
+        AND version = #{oldVersion}
+    </update>
 
 </mapper>
